@@ -94,7 +94,7 @@ blockquote, q { quotes: &#8220 &#8220; }
 
 blockquote:before, blockquote:after,
 q:before, q:after {
-   content: '';
+   content: ''; 
    content: none;
 }
 
