@@ -1,0 +1,24 @@
+{
+  "name": "personal-site",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "node scripts/build-site.mjs && npm run build --workspaces",
+    "typecheck": "tsc --noEmit -p netlify/functions && npm run typecheck --workspaces",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "dependencies": {
+    "@netlify/functions": "^6.0.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

@@ -28,3 +28,12 @@
 application.log*
 
 .attach_pid*
+
+### Node / webapps ###
+node_modules/
+dist/
+.netlify/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
