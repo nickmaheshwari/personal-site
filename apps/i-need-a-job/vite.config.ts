@@ -9,6 +9,7 @@ const fn = (name: string) => fileURLToPath(new URL(`../../netlify/functions/${na
 const LOCAL_FUNCTIONS: Record<string, string> = {
   "/api/i-need-a-job/jobs": fn("i-need-a-job-jobs"),
   "/api/i-need-a-job/usajobs": fn("i-need-a-job-usajobs"),
+  "/api/i-need-a-job/posting": fn("i-need-a-job-posting"),
 };
 
 /**

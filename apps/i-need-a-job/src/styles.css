@@ -323,3 +323,99 @@ select {
   background: var(--accent-soft);
   color: var(--text);
 }
+
+/* Per-job actions: apply link, tracker status, resume fit check. */
+a.button {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-family: "opensans-bold", system-ui, sans-serif;
+}
+
+a.button:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.small {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+.job-actions,
+.tracker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
+.job-actions select,
+.tracker-row select {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.tracker-row textarea {
+  flex: 1 1 220px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.title-toolbar .chips {
+  flex: 1;
+}
+
+.fit {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.fit p {
+  margin: 0 0 6px;
+}
+
+.keyword-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.keyword {
+  border-radius: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+}
+
+.keyword.have {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.keyword.missing {
+  border-style: dashed;
+}

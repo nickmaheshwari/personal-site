@@ -3,10 +3,12 @@ import { COMPANIES, INDUSTRIES } from "../shared/companies.ts";
 import { type Filters, filterJobsWithStats } from "../shared/match.ts";
 import { analyzeResume } from "../shared/resume.ts";
 import type { Job, TitleFit } from "../shared/types.ts";
+import { Applications } from "./Applications.tsx";
 import { companyTask, runSearchTasks, type SearchTask, type TaskResult, usaJobsTask } from "./api.ts";
 import { extractText, MAX_BYTES, UnsupportedFileError } from "./extract.ts";
 import { FiltersPanel } from "./FiltersPanel.tsx";
 import { Results } from "./Results.tsx";
+import { useTracker } from "./tracker.ts";
 import { Upload } from "./Upload.tsx";
 
 export interface TitleOption {
@@ -44,6 +46,9 @@ export function App() {
   const [titles, setTitles] = useState<TitleOption[] | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [search, setSearch] = useState<SearchState | null>(null);
+  // Kept in memory only, for the per-job keyword check.
+  const [resumeText, setResumeText] = useState<string | null>(null);
+  const { tracker, setStatus, setNotes } = useTracker();
   const abortRef = useRef<AbortController | null>(null);
 
   async function analyze(file: File) {
@@ -57,6 +62,7 @@ export function App() {
       if (result.titles.length === 0) {
         setUploadError("Couldn't recognize any roles in this resume. Add titles yourself below.");
       }
+      setResumeText(text);
       setTitles(result.titles.map((t) => ({ ...t, selected: t.fit !== "stretch" })));
       setFilters((f) => ({ ...f, yearsOfExperience: result.yearsOfExperience ?? f.yearsOfExperience }));
       setSearch(null);
@@ -137,7 +143,25 @@ export function App() {
         />
       )}
 
-      {search && stats && <Results search={search} matches={matches} stats={stats} />}
+      {search && stats && (
+        <Results
+          search={search}
+          matches={matches}
+          stats={stats}
+          tracker={tracker}
+          onStatusChange={setStatus}
+          resumeText={resumeText}
+        />
+      )}
+
+      <Applications
+        tracker={tracker}
+        onStatusChange={(id, status) => {
+          const entry = tracker[id];
+          if (entry) setStatus(entry.job, status);
+        }}
+        onNotesChange={setNotes}
+      />
     </main>
   );
 }

@@ -11,7 +11,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * Short all-caps acronyms (SRE, PM, TAM) match case-sensitively so "pm" in
  * "5pm" or "tam" in a name don't count.
  */
-function phraseRegExp(phrase: string): RegExp {
+export function phraseRegExp(phrase: string): RegExp {
   const body = escapeRegExp(phrase).replace(/(?:\\-|\s)+/g, "[\\s-]*");
   const start = /^\w/.test(phrase) ? "(?<![\\w])" : "";
   const end = /\w$/.test(phrase) ? "(?![\\w])" : "";

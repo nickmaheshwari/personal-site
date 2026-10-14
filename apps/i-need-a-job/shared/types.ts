@@ -21,6 +21,8 @@ export interface Job {
   location: string;
   remote: boolean;
   url: string;
+  /** Link straight to the application form, when the job board provides one. */
+  applyUrl?: string;
   postedAt: string | null;
   /** Annual salary range in the posting's currency, when the posting lists one. */
   salary: { min: number; max: number; currency: string } | null;
