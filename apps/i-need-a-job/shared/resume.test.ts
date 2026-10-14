@@ -70,3 +70,35 @@ describe("estimateYearsOfExperience", () => {
     expect(estimateYearsOfExperience("Experience\nSoftware Engineer at Acme", now)).toBeNull();
   });
 });
+
+describe("suggestTitles outside tech", () => {
+  const fits = (text: string) => Object.fromEntries(suggestTitles(text).map((t) => [t.title, t.fit]));
+
+  it("recognizes a nurse", () => {
+    const f = fits(`Experience
+Registered Nurse, Mercy Hospital, Jan 2019 - Present
+Provided bedside patient care for 6 patients per shift; medication administration, vital signs, charting in Epic.
+BLS and ACLS certified. Triage in a busy emergency department.`);
+    expect(f["Registered Nurse"]).toBe("close");
+    expect(f["Care Coordinator"]).toBe("related");
+    expect(f["Software Engineer"]).toBeUndefined();
+  });
+
+  it("recognizes a line cook moving toward management", () => {
+    const f = fits(`Work Experience
+Line Cook, Blue Plate Bistro 2020 - Present
+Prepped and cooked for a 120-seat restaurant; kept the kitchen ServSafe compliant; trained new hires.
+Barista, Corner Coffee 2018 - 2020: point of sale, guest service`);
+    expect(f.Chef).toBe("close");
+    expect(f.Server).toBe("close");
+    expect(f["Restaurant Manager"]).toBe("related");
+  });
+
+  it("recognizes a journalist", () => {
+    const f = fits(`Experience
+Staff Writer, The Daily Herald (2017 - 2024)
+Reported and wrote 300+ stories in AP style; pitched headlines; worked with editors in a fast-paced newsroom.`);
+    expect(f.Reporter).toBe("close");
+    expect(f.Editor).toBe("related");
+  });
+});

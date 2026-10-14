@@ -195,13 +195,82 @@ export function normalizeAshby(company: Company, data: { jobs: AshbyJob[] }): Jo
     });
 }
 
-const ENDPOINTS: Record<Company["source"], (slug: string) => string> = {
+// --- SmartRecruiters: api.smartrecruiters.com/v1/companies/<id>/postings
+// The list endpoint has no descriptions, so salary and experience stay null
+// (fetching each posting's details would be one request per job).
+
+interface SmartRecruitersJob {
+  id: string;
+  name: string;
+  releasedDate?: string;
+  company?: { identifier?: string };
+  location?: {
+    city?: string;
+    country?: string;
+    remote?: boolean;
+    fullLocation?: string;
+  };
+}
+
+interface SmartRecruitersPage {
+  totalFound: number;
+  content: SmartRecruitersJob[];
+}
+
+export function normalizeSmartRecruiters(company: Company, jobs: SmartRecruitersJob[]): Job[] {
+  return jobs.map((j) => {
+    const loc = j.location ?? {};
+    const full = loc.fullLocation ?? "";
+    // Outside the US, region codes ("Barcelona, CT, Spain") would collide with
+    // US state abbreviations, so keep just the city and country.
+    const location =
+      loc.country === "us" || !full.includes(",")
+        ? full
+        : [loc.city, full.split(", ").at(-1)].filter(Boolean).join(", ");
+    return {
+      id: `smartrecruiters:${company.slug}:${j.id}`,
+      company: company.name,
+      title: j.name.trim(),
+      location: loc.remote ? `${location} (Remote)` : location,
+      remote: loc.remote === true,
+      url: `https://jobs.smartrecruiters.com/${j.company?.identifier ?? company.slug}/${j.id}`,
+      postedAt: j.releasedDate ?? null,
+      salary: null,
+      minYears: null,
+    };
+  });
+}
+
+const SR_PAGE = 100;
+/** Large employers (Bosch has ~5,000 postings) are capped to keep the function fast. */
+const SR_MAX_POSTINGS = 2000;
+
+async function fetchSmartRecruiters(company: Company, signal?: AbortSignal): Promise<Job[]> {
+  const page = async (offset: number): Promise<SmartRecruitersPage> => {
+    const url = `https://api.smartrecruiters.com/v1/companies/${company.slug}/postings?limit=${SR_PAGE}&offset=${offset}`;
+    const res = await fetch(url, { headers: { Accept: "application/json" }, signal });
+    if (!res.ok) throw new Error(`smartrecruiters returned ${res.status} for ${company.slug}`);
+    return (await res.json()) as SmartRecruitersPage;
+  };
+  const first = await page(0);
+  const total = Math.min(first.totalFound, SR_MAX_POSTINGS);
+  const offsets: number[] = [];
+  for (let offset = SR_PAGE; offset < total; offset += SR_PAGE) offsets.push(offset);
+  const rest = await Promise.all(offsets.map(page));
+  return normalizeSmartRecruiters(
+    company,
+    [first, ...rest].flatMap((p) => p.content),
+  );
+}
+
+const ENDPOINTS: Record<Exclude<Company["source"], "smartrecruiters">, (slug: string) => string> = {
   greenhouse: (slug) => `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`,
   lever: (slug) => `https://api.lever.co/v0/postings/${slug}?mode=json`,
   ashby: (slug) => `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`,
 };
 
 export async function fetchCompanyJobs(company: Company, signal?: AbortSignal): Promise<Job[]> {
+  if (company.source === "smartrecruiters") return fetchSmartRecruiters(company, signal);
   const res = await fetch(ENDPOINTS[company.source](company.slug), {
     headers: { Accept: "application/json" },
     signal,

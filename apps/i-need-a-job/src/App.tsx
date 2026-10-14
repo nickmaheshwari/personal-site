@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { COMPANIES, type Company } from "../shared/companies.ts";
+import { COMPANIES, type Company, INDUSTRIES } from "../shared/companies.ts";
 import { type Filters, filterJobs } from "../shared/match.ts";
 import { analyzeResume } from "../shared/resume.ts";
 import type { Job, TitleFit } from "../shared/types.ts";
@@ -24,6 +24,7 @@ export interface SearchState {
 
 const initialFilters: Filters = {
   titles: [],
+  industries: [],
   remoteOnly: false,
   location: "",
   yearsOfExperience: null,
@@ -96,8 +97,8 @@ export function App() {
       <header className="masthead">
         <h1>I Need a Job</h1>
         <p>
-          Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} tech companies.
-          Your resume is read in your browser and never uploaded.
+          Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} companies across{" "}
+          {INDUSTRIES.length} industries. Your resume is read in your browser and never uploaded.
         </p>
       </header>
 

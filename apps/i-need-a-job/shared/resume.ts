@@ -29,7 +29,7 @@ const COMPILED: CompiledFamily[] = FAMILIES.map((family) => ({
   family,
   titles: family.titles.map((t) => ({
     title: t.title,
-    patterns: [t.title, ...(t.aliases ?? [])].map(phraseRegExp),
+    patterns: [...(t.aliasesOnly ? [] : [t.title]), ...(t.aliases ?? [])].map(phraseRegExp),
   })),
   keywords: family.keywords.map(phraseRegExp),
 }));

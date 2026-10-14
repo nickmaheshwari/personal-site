@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Company } from "./companies.ts";
-import { extractMinYears, extractSalary, htmlToText, normalizeAshby, normalizeGreenhouse } from "./normalize.ts";
+import {
+  extractMinYears,
+  extractSalary,
+  htmlToText,
+  normalizeAshby,
+  normalizeGreenhouse,
+  normalizeSmartRecruiters,
+} from "./normalize.ts";
 
-const acme: Company = { name: "Acme", source: "greenhouse", slug: "acme" };
+const acme: Company = { name: "Acme", source: "greenhouse", slug: "acme", industry: "Technology" };
 
 describe("extractSalary", () => {
   it("parses common range formats", () => {
@@ -64,5 +71,42 @@ describe("normalizers", () => {
       },
     );
     expect(job?.remote).toBe(false);
+  });
+});
+
+describe("normalizeSmartRecruiters", () => {
+  const accor: Company = {
+    name: "Accor",
+    source: "smartrecruiters",
+    slug: "Accor",
+    industry: "Hospitality, Food & Travel",
+  };
+
+  it("drops non-US region codes so they can't look like US states", () => {
+    const [job] = normalizeSmartRecruiters(accor, [
+      {
+        id: "1",
+        name: "Front Office Agent",
+        location: { city: "Barcelona", country: "es", fullLocation: "Barcelona, CT, Spain" },
+      },
+    ]);
+    expect(job?.location).toBe("Barcelona, Spain");
+    expect(job?.url).toBe("https://jobs.smartrecruiters.com/Accor/1");
+  });
+
+  it("keeps US locations and marks remote postings", () => {
+    const [job] = normalizeSmartRecruiters(accor, [
+      {
+        id: "2",
+        name: "Revenue Manager",
+        location: { city: "Austin", country: "us", remote: true, fullLocation: "Austin, TX, United States" },
+      },
+    ]);
+    expect(job).toMatchObject({
+      location: "Austin, TX, United States (Remote)",
+      remote: true,
+      salary: null,
+      minYears: null,
+    });
   });
 });

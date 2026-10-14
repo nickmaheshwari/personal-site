@@ -1,11 +1,14 @@
 // Client-side matching of normalized postings against the user's selected titles
 // and filters. Pure functions so they're easy to test.
 
+import { type Industry, industryOf } from "./companies.ts";
 import { locationMatches } from "./locations.ts";
 import type { Job } from "./types.ts";
 
 export interface Filters {
   titles: string[];
+  /** Only show companies in these industries; empty means all industries. */
+  industries: Industry[];
   remoteOnly: boolean;
   /** A LocationOption label, or "" for any location. */
   location: string;
@@ -95,8 +98,13 @@ export interface MatchedJob extends Job {
 
 export function filterJobs(jobs: readonly Job[], filters: Filters): MatchedJob[] {
   const selected = filters.titles.map(tokenize);
+  const industries = new Set(filters.industries);
   const out: MatchedJob[] = [];
   for (const job of jobs) {
+    if (industries.size > 0) {
+      const industry = industryOf(job.company);
+      if (!industry || !industries.has(industry)) continue;
+    }
     const idx = matchTitle(job.title, selected);
     if (idx < 0) continue;
     if (filters.remoteOnly && !job.remote) continue;

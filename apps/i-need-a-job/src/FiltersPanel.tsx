@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { INDUSTRIES, type Industry } from "../shared/companies.ts";
 import { LOCATIONS } from "../shared/locations.ts";
 import type { Filters } from "../shared/match.ts";
 import type { TitleOption } from "./App.tsx";
@@ -102,6 +103,28 @@ export function FiltersPanel({
           Add
         </button>
       </form>
+
+      <div className="title-group">
+        <h3>Industries {filters.industries.length === 0 && <span className="hint">(all)</span>}</h3>
+        <div className="chips">
+          {INDUSTRIES.map((industry) => {
+            const on = filters.industries.includes(industry);
+            const toggleIndustry = (i: Industry) =>
+              set("industries", on ? filters.industries.filter((x) => x !== i) : [...filters.industries, i]);
+            return (
+              <button
+                key={industry}
+                type="button"
+                className={`chip${on ? " selected" : ""}`}
+                aria-pressed={on}
+                onClick={() => toggleIndustry(industry)}
+              >
+                {industry}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="filters">
         <label className="field checkbox">

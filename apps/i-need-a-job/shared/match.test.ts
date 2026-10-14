@@ -18,6 +18,7 @@ const job = (overrides: Partial<Job>): Job => ({
 
 const filters = (overrides: Partial<Filters>): Filters => ({
   titles: ["Software Engineer"],
+  industries: [],
   remoteOnly: false,
   location: "",
   yearsOfExperience: null,
@@ -76,5 +77,13 @@ describe("locationMatches", () => {
     expect(locationMatches("United States (anywhere)", "Austin, TX")).toBe(true);
     expect(locationMatches("United States (anywhere)", "Toronto, Canada")).toBe(false);
     expect(locationMatches("London", "New London, CT")).toBe(true); // known limitation of alias matching
+  });
+});
+
+describe("industry filter", () => {
+  it("keeps only companies in the selected industries", () => {
+    const jobs = [job({ id: "nyt", company: "The New York Times" }), job({ id: "stripe", company: "Stripe" })];
+    expect(filterJobs(jobs, filters({ industries: ["Media & Entertainment"] })).map((j) => j.id)).toEqual(["nyt"]);
+    expect(filterJobs(jobs, filters({ industries: [] })).map((j) => j.id)).toEqual(["nyt", "stripe"]);
   });
 });

@@ -28,7 +28,7 @@ export async function fetchAllJobs(
   companies: readonly Company[],
   onResult: (company: Company, result: { jobs: Job[] } | { error: string }) => void,
   signal: AbortSignal,
-  concurrency = 6,
+  concurrency = 8,
 ): Promise<void> {
   let next = 0;
   const worker = async () => {
