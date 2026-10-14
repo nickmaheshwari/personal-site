@@ -9,6 +9,18 @@ This is Nicholas Maheshwari's personal website, live at https://www.nicholasmahe
 - **Today:** a static, single-page resume/portfolio site (About, Resume, Portfolio, Testimonials, Contact).
 - **Going forward:** the site will also host additional functionality, such as **hidden webapps**: standalone tools served under unlisted paths that aren't linked from the main page. The resume site must keep working unchanged as these are added.
 
+## Browser and device support
+
+**Everything on this site, including every app, must work on all browsers and device types going back at least 10 years.** That means phones, tablets and desktops running browser versions from 2016 onward: Safari and iOS 10+, Chrome and Android WebView 54+, Firefox 50+, Edge 14+ and Samsung Internet 5+. Internet Explorer is out of scope, because React 19 doesn't run on it.
+
+Real visitors hit this. Friends on older iPhones couldn't upload resumes because pdf.js used `for await` over a `ReadableStream` and the global `Iterator`, which older Safari doesn't have.
+
+- **Before using a newer JavaScript or Web API, check it** on caniuse.com or MDN's compatibility tables against the versions above. Typical problems are iterator helpers (`.values().map()`, `Iterator`), `Array.prototype.at`/`findLast`/`toSorted`, `Object.groupBy`, `structuredClone`, `Promise.withResolvers`, async iteration of streams, `:has()`, container queries and CSS nesting. Use an older equivalent or a polyfill.
+- **Dependencies count.** A library that only ships modern syntax breaks old browsers even when our own code is fine. Prefer a library's legacy or ES5 build if it has one (we use `pdfjs-dist/legacy/...`), and check a new dependency's browser support before adding it.
+- **Layouts must work from 320px phones up to desktop,** with touch and mouse alike. Don't rely on hover to reveal anything essential.
+- **Check behavior in an old browser** (for example, an old iOS Simulator or a BrowserStack session) for anything touching file uploads, parsing or new APIs. When that isn't possible, simulate it in Node by deleting the missing global first.
+- **Known gap:** the apps' Vite builds still use Vite's default target, which only covers browsers from roughly 2023 onward. Closing that gap means adding `@vitejs/plugin-legacy` (with `targets` matching the list above) to each app and checking the result in a deploy preview.
+
 ## Hosting and deployment
 
 - **Netlify** hosts the site and deploys automatically from pushes to `master`. `netlify.toml` is the source of truth for build settings: `npm run build` copies the static resume files into `dist/` (`scripts/build-site.mjs`), then builds each app under `apps/` into `dist/<app>/`. Netlify publishes `dist/`. Keep config in `netlify.toml` rather than the Netlify UI.
@@ -74,7 +86,7 @@ netlify.toml                # Build, headers (noindex + CSP for hidden apps)
 - **SmartRecruiters limits:** its list endpoint has no descriptions, so those postings never have salary or experience data. Each board is capped at 2,000 postings.
 - **Federal jobs (USAJOBS)** come from the official API, searched by title (one request per selected title), and are tagged with the "Nonprofit & Government" industry. The key is free, from developer.usajobs.gov. Without one, the function returns `{ disabled: true }` and the page says federal jobs aren't included.
 - **Considered and skipped:** Adzuna (free tier is 250 calls a day, requires logo attribution, and commercial use needs a license). Idealist and governmentjobs.com (no public APIs). Workday (no public API).
-- **Search flow:** the browser fetches every company through the jobs function, plus USAJOBS for each selected title, eight requests at a time (about 35k postings). It keeps all postings in memory and filters them on the client. Changing filters after a search doesn't make new requests. When nothing matches, the page says which filter removed the postings (`filterJobsWithStats`).
+- **Search flow:** the browser fetches every company through the jobs function, plus USAJOBS for each selected title, eight requests at a time (about 35k postings). It keeps all postings in memory and filters them on the client. Changing filters after a search doesn't make new requests. When nothing matches, the page says which filter removed the postings (`filterJobsWithStats`). The search box above the results narrows them further: every word must appear in the employer, title, location, industry or matched title, ignoring case and accents (`searchJobs`).
 - **Title matching:** strict mode requires every word of a selected title to appear in the posting title. Broad mode (on by default) applies to titles of 3+ words and requires the role word (the last word) plus at least half of the other words, including one that isn't generic (see `GENERIC_WORDS`). Seniority words are dropped from selected titles unless they're the last word ("Development Associate"), and are never dropped from posting titles.
 - **Ambiguous titles** match the wrong industry. "Program Director" matches tech program-management directors, and "Development Associate" matches business development roles. Pick posting-facing titles that are distinctive ("Director of Programs", "Philanthropy Manager") and keep the ambiguous wording as an alias, so it's still detected in resumes.
 - **Applying is always done by the user.** There's no auto-apply, by design: the job boards' apply APIs need the employer's key, and form-filling bots break their terms and hurt applications. The app speeds things up instead:
