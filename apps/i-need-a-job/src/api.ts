@@ -64,3 +64,18 @@ export async function runSearchTasks(
   };
   await Promise.all(Array.from({ length: concurrency }, worker));
 }
+
+const BOARD_SOURCES = new Set(["greenhouse", "lever", "ashby", "smartrecruiters"]);
+
+/** Where to fetch a posting's description, or null for sources without one (USAJOBS). */
+export function postingUrl(job: Job): string | null {
+  const [source = "", slug = "", ...rest] = job.id.split(":");
+  if (!BOARD_SOURCES.has(source) || !slug || rest.length === 0) return null;
+  return `/api/i-need-a-job/posting?${new URLSearchParams({ source, slug, id: rest.join(":") })}`;
+}
+
+export async function fetchPostingText(url: string, signal: AbortSignal): Promise<string> {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw await errorFrom(res);
+  return ((await res.json()) as { text: string }).text;
+}

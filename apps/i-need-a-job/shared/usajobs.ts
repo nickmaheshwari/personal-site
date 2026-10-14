@@ -9,6 +9,8 @@ interface UsaJobsItem {
   MatchedObjectDescriptor: {
     PositionTitle: string;
     PositionURI: string;
+    /** Documented as a string but returned as an array of one URL. */
+    ApplyURI?: string[] | string;
     PositionLocationDisplay?: string;
     OrganizationName?: string;
     DepartmentName?: string;
@@ -35,6 +37,7 @@ export function normalizeUsaJobs(data: UsaJobsResponse): Job[] {
       location,
       remote: /\bremote\b|anywhere in the u\.?s/i.test(location),
       url: d.PositionURI,
+      applyUrl: (Array.isArray(d.ApplyURI) ? d.ApplyURI[0] : d.ApplyURI) || undefined,
       postedAt: d.PublicationStartDate ?? null,
       salary: pay && min > 0 && max >= min ? { min, max, currency: "USD" } : null,
       minYears: null,

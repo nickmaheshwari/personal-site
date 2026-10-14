@@ -47,17 +47,22 @@ readme.txt            # Credits for the template, fonts, icons, and libraries
 apps/i-need-a-job/    # Hidden webapp at /i-need-a-job (React + Vite + TS)
   src/                # UI: resume → title chips + filters → progressive results
     extract.ts        #   PDF (pdf.js) / DOCX (fflate) / TXT → plain text, in the browser
+    tracker.ts        #   Application tracker (status, notes, CSV export) in localStorage
+    FitCheck.tsx      #   Per-job resume keyword check
   shared/             # Code used by both the UI and the functions (+ tests)
     taxonomy.ts       #   Job families: titles, aliases, skill keywords, adjacent families
     resume.ts         #   Resume text → suggested titles + years of experience
     companies.ts      #   Allowlist of ~160 employers: job board, slug, industry
     normalize.ts      #   Greenhouse/Lever/Ashby/SmartRecruiters → Job; salary and years-of-experience extraction
     usajobs.ts        #   USAJOBS (federal) title search → Job
+    posting.ts        #   One posting's full description (for the keyword check)
+    keywords.ts       #   Resume vs. posting: which taxonomy keywords match or are missing
     match.ts          #   Title matching, filters, and per-filter stats (runs in the browser)
     locations.ts      #   Location dropdown options and aliases
 netlify/functions/    # Serverless API (TypeScript, modern Netlify Functions API)
   i-need-a-job-jobs.mts     # GET /api/i-need-a-job/jobs: one company's postings, CDN-cached 1h
   i-need-a-job-usajobs.mts  # GET /api/i-need-a-job/usajobs?title=: federal postings; { disabled: true } without a key
+  i-need-a-job-posting.mts  # GET /api/i-need-a-job/posting?source&slug&id: one posting's text, CDN-cached 1h
 scripts/build-site.mjs      # Copies the static site into dist/
 netlify.toml                # Build, headers (noindex + CSP for hidden apps)
 ```
@@ -72,6 +77,10 @@ netlify.toml                # Build, headers (noindex + CSP for hidden apps)
 - **Search flow:** the browser fetches every company through the jobs function, plus USAJOBS for each selected title, eight requests at a time (about 35k postings). It keeps all postings in memory and filters them on the client. Changing filters after a search doesn't make new requests. When nothing matches, the page says which filter removed the postings (`filterJobsWithStats`).
 - **Title matching:** strict mode requires every word of a selected title to appear in the posting title. Broad mode (on by default) applies to titles of 3+ words and requires the role word (the last word) plus at least half of the other words, including one that isn't generic (see `GENERIC_WORDS`). Seniority words are dropped from selected titles unless they're the last word ("Development Associate"), and are never dropped from posting titles.
 - **Ambiguous titles** match the wrong industry. "Program Director" matches tech program-management directors, and "Development Associate" matches business development roles. Pick posting-facing titles that are distinctive ("Director of Programs", "Philanthropy Manager") and keep the ambiguous wording as an alias, so it's still detected in resumes.
+- **Applying is always done by the user.** There's no auto-apply, by design: the job boards' apply APIs need the employer's key, and form-filling bots break their terms and hurt applications. The app speeds things up instead:
+  - **Apply links:** Lever, Ashby and USAJOBS provide a direct link to the application form (`Job.applyUrl`). Greenhouse and SmartRecruiters link to the posting.
+  - **Tracker:** Saved → Applied → Interviewing → Offer → Rejected, with notes and CSV export. It lives only in the visitor's browser (`localStorage`, key `i-need-a-job:tracker:v1`), so a change to `TrackedJob`'s shape needs a new key or a migration.
+  - **Resume fit:** compares the posting's description with the resume text, which stays in memory, using the taxonomy keywords. It's unavailable for USAJOBS postings.
 - **No AI or LLM calls, by design.** Title suggestions are plain text processing in `shared/resume.ts`, and the resume never leaves the browser. Each family is scored as 4 × (its titles mentioned in the resume) + (distinct keyword hits). Mentioned titles are "close". Families scoring at least 35% of the best family are "related". Up to 10 titles from their adjacent families are "stretch". To improve suggestions, edit `shared/taxonomy.ts` and add a case to `shared/resume.test.ts`.
 - **Writing taxonomy entries:** some titles are too generic to detect in a resume (Server, Editor, Scientist), so they're marked `aliasesOnly` and only their aliases count as mentions. Avoid aliases and keywords with common other meanings, such as "Driver", "Producer" (Kafka), "Picker" (date picker) and "production".
 - **Years of experience** is the total of date ranges in work sections, with overlaps merged and education/projects/skills sections skipped.

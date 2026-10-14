@@ -107,6 +107,7 @@ interface LeverJob {
   id: string;
   text: string;
   hostedUrl: string;
+  applyUrl?: string;
   createdAt?: number;
   workplaceType?: string;
   categories?: { location?: string; allLocations?: string[] };
@@ -116,10 +117,15 @@ interface LeverJob {
   salaryRange?: { min?: number; max?: number; currency?: string; interval?: string };
 }
 
+/** A Lever posting's full text: description, bullet lists, and closing section. */
+export function leverText(j: Pick<LeverJob, "descriptionPlain" | "lists" | "additionalPlain">): string {
+  const lists = (j.lists ?? []).map((l) => `${l.text ?? ""} ${htmlToText(l.content ?? "")}`).join(" ");
+  return `${j.descriptionPlain ?? ""} ${lists} ${j.additionalPlain ?? ""}`;
+}
+
 export function normalizeLever(company: Company, data: LeverJob[]): Job[] {
   return data.map((j) => {
-    const lists = (j.lists ?? []).map((l) => `${l.text ?? ""} ${htmlToText(l.content ?? "")}`).join(" ");
-    const text = `${j.descriptionPlain ?? ""} ${lists} ${j.additionalPlain ?? ""}`;
+    const text = leverText(j);
     const locations = j.categories?.allLocations?.length ? j.categories.allLocations : [j.categories?.location ?? ""];
     const location = locations.filter(Boolean).join(" • ");
     const range = j.salaryRange;
@@ -134,6 +140,7 @@ export function normalizeLever(company: Company, data: LeverJob[]): Job[] {
       location,
       remote: j.workplaceType === "remote" || isRemoteText(location),
       url: j.hostedUrl,
+      applyUrl: j.applyUrl,
       postedAt: j.createdAt ? new Date(j.createdAt).toISOString() : null,
       salary: structuredSalary ?? extractSalary(text),
       minYears: extractMinYears(text),
@@ -152,6 +159,7 @@ interface AshbyJob {
   workplaceType?: string | null;
   isListed?: boolean;
   jobUrl: string;
+  applyUrl?: string;
   publishedAt?: string;
   descriptionPlain?: string;
   compensation?: {
@@ -182,6 +190,7 @@ export function normalizeAshby(company: Company, data: { jobs: AshbyJob[] }): Jo
         // Ashby sets isRemote on hybrid roles too, so prefer workplaceType when present.
         remote: j.workplaceType ? j.workplaceType === "Remote" : j.isRemote === true || isRemoteText(location),
         url: j.jobUrl,
+        applyUrl: j.applyUrl,
         postedAt: j.publishedAt ?? null,
         salary: salaryComponent
           ? {

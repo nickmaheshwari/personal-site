@@ -1,11 +1,65 @@
 import { useMemo, useState } from "react";
 import type { FilterStats, MatchedJob } from "../shared/match.ts";
+import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
+import { postingUrl } from "./api.ts";
+import { FitCheck } from "./FitCheck.tsx";
+import { STATUS_LABELS, STATUSES, type Status, type Tracker } from "./tracker.ts";
 
 interface Props {
   search: SearchState;
   matches: MatchedJob[];
   stats: FilterStats;
+  tracker: Tracker;
+  onStatusChange: (job: Job, status: Status | null) => void;
+  /** The uploaded resume's text, for the keyword check; null if none is loaded. */
+  resumeText: string | null;
+}
+
+interface JobActionsProps {
+  job: Job;
+  status: Status | null;
+  onStatusChange: (job: Job, status: Status | null) => void;
+  resumeText: string | null;
+}
+
+/** Apply link, tracker status, and the resume keyword check for one posting. */
+function JobActions({ job, status, onStatusChange, resumeText }: JobActionsProps) {
+  const [checking, setChecking] = useState(false);
+  const fitUrl = postingUrl(job);
+  return (
+    <>
+      <div className="job-actions">
+        <a
+          className="button primary small"
+          href={job.applyUrl ?? job.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={job.applyUrl ? "Opens the application form" : "Opens the posting; apply from there"}
+        >
+          {job.applyUrl ? "Apply" : "View & apply"}
+        </a>
+        <select
+          aria-label={`Track ${job.title}`}
+          value={status ?? ""}
+          onChange={(e) => onStatusChange(job, (e.target.value || null) as Status | null)}
+        >
+          <option value="">Not tracked</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABELS[s]}
+            </option>
+          ))}
+        </select>
+        {fitUrl && resumeText && (
+          <button type="button" className="link" aria-expanded={checking} onClick={() => setChecking((c) => !c)}>
+            {checking ? "Hide resume fit" : "Check resume fit"}
+          </button>
+        )}
+      </div>
+      {checking && fitUrl && resumeText && <FitCheck url={fitUrl} resumeText={resumeText} />}
+    </>
+  );
 }
 
 const FILTER_NAMES: Record<keyof FilterStats["removed"], string> = {
@@ -47,7 +101,7 @@ const age = (iso: string | null) => {
         : `${Math.floor(days / 30)} months ago`;
 };
 
-export function Results({ search, matches, stats }: Props) {
+export function Results({ search, matches, stats, tracker, onStatusChange, resumeText }: Props) {
   const [shown, setShown] = useState(PAGE);
   const sorted = useMemo(
     () => [...matches].sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? "")),
@@ -106,6 +160,12 @@ export function Results({ search, matches, stats }: Props) {
               {age(job.postedAt) && <span>{age(job.postedAt)}</span>}
               <span className="badge subtle">{job.matchedTitle}</span>
             </div>
+            <JobActions
+              job={job}
+              status={tracker[job.id]?.status ?? null}
+              onStatusChange={onStatusChange}
+              resumeText={resumeText}
+            />
           </li>
         ))}
       </ul>
