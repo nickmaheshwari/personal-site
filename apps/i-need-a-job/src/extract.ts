@@ -31,8 +31,14 @@ async function pdfToText(data: Uint8Array): Promise<string> {
     const doc = await task.promise;
     const pages: string[] = [];
     for (let i = 1; i <= doc.numPages; i++) {
-      const content = await (await doc.getPage(i)).getTextContent();
-      pages.push(pdfItemsToText(content.items));
+      // Not getTextContent(): it uses `for await` over a ReadableStream, which older
+      // Safari can't iterate ("undefined is not a function"). Read the stream by hand.
+      const reader = (await doc.getPage(i)).streamTextContent().getReader();
+      const items: object[] = [];
+      for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+        items.push(...(chunk.value as { items: object[] }).items);
+      }
+      pages.push(pdfItemsToText(items));
     }
     return pages.join("\n");
   } finally {
