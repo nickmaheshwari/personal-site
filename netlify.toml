@@ -4,6 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # USAJOBS_EMAIL is the same public address shown in the resume's Contact section,
+  # so the secrets scanner would otherwise fail the build on index.html.
+  SECRETS_SCAN_OMIT_KEYS = "USAJOBS_EMAIL"
 
 # Hidden webapps and their APIs stay out of search engines.
 [[headers]]
