@@ -132,6 +132,17 @@ export function FiltersPanel({
           <span>Remote only</span>
         </label>
 
+        <label className="field checkbox">
+          <input
+            type="checkbox"
+            checked={filters.broadTitleMatch}
+            onChange={(e) => set("broadTitleMatch", e.target.checked)}
+          />
+          <span title='Long titles also match close variants, e.g. "Health and Wellness Coordinator" finds "Wellness Program Coordinator".'>
+            Broader title matching
+          </span>
+        </label>
+
         <label className="field">
           <span>Location</span>
           <select value={filters.location} onChange={(e) => set("location", e.target.value)}>

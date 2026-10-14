@@ -102,3 +102,32 @@ Reported and wrote 300+ stories in AP style; pitched headlines; worked with edit
     expect(f.Editor).toBe("related");
   });
 });
+
+describe("suggestTitles for nonprofit health and wellness work", () => {
+  const RESUME = `Experience
+Health and Wellness Coordinator, Bright Futures Community Center (501(c)(3))   Aug 2021 - Present
+- Plan and run wellness workshops and health fairs for 400+ community members
+- Coordinate nutrition and physical activity programs; recruit and train volunteers
+- Track program outcomes for grant reports; partner with local clinics on health screenings
+Program Assistant, City Youth Alliance   Jun 2019 - Jul 2021
+- Supported youth programs and community outreach events
+
+Education
+B.S. Public Health, State University   2015 - 2019`;
+  const fits = Object.fromEntries(suggestTitles(RESUME).map((t) => [t.title, t.fit]));
+
+  it("recognizes the roles she has held", () => {
+    expect(fits["Wellness Coordinator"]).toBe("close");
+    expect(fits["Program Coordinator"]).toBe("close");
+  });
+
+  it("suggests neighboring health and program roles", () => {
+    expect(fits["Health Educator"]).toBe("related");
+    expect(fits["Community Health Worker"]).toBe("related");
+    expect(fits["Volunteer Coordinator"]).toBe("related");
+  });
+
+  it("estimates experience from work history only", () => {
+    expect(estimateYearsOfExperience(RESUME, new Date(2026, 9, 1))).toBe(7);
+  });
+});

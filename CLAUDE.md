@@ -13,7 +13,7 @@ This is Nicholas Maheshwari's personal website, live at https://www.nicholasmahe
 
 - **Netlify** hosts the site and deploys automatically from pushes to `master`. `netlify.toml` is the source of truth for build settings: `npm run build` copies the static resume files into `dist/` (`scripts/build-site.mjs`), then builds each app under `apps/` into `dist/<app>/`. Netlify publishes `dist/`. Keep config in `netlify.toml` rather than the Netlify UI.
 - **AWS Route 53** holds DNS for `nicholasmaheshwari.com` and points the apex/`www` records at Netlify. DNS changes are made in AWS, not in this repo.
-- **Environment variables:** none are needed yet. When an app needs one, set it in the Netlify UI and list it in a committed `.env.example`.
+- **Environment variables** are set in the Netlify UI and listed in `.env.example`. Currently only the optional `USAJOBS_API_KEY` and `USAJOBS_EMAIL`. For local dev, put them in a repo-root `.env`.
 - Every push to `master` goes to production. Use feature branches and Netlify deploy previews (PRs) for anything non-trivial.
 
 ## Commands
@@ -24,7 +24,7 @@ npm run build        # dist/ = static site + built apps
 npm test             # vitest (unit tests live next to the code: *.test.ts)
 npm run typecheck    # functions + every app
 npm run lint         # biome; `npm run format` to auto-fix
-npm run dev -w apps/i-need-a-job   # http://localhost:5173/i-need-a-job/ (the dev server also runs the jobs function)
+npm run dev -w apps/i-need-a-job   # http://localhost:5173/i-need-a-job/ (the dev server also runs the app's functions, with .env loaded)
 netlify dev          # optional: whole site + all functions as Netlify runs them, on :8888 (needs netlify-cli; run `npm run build` first)
 ```
 
@@ -50,23 +50,32 @@ apps/i-need-a-job/    # Hidden webapp at /i-need-a-job (React + Vite + TS)
   shared/             # Code used by both the UI and the functions (+ tests)
     taxonomy.ts       #   Job families: titles, aliases, skill keywords, adjacent families
     resume.ts         #   Resume text → suggested titles + years of experience
-    companies.ts      #   Allowlist of companies and their job-board slugs
-    normalize.ts      #   Greenhouse/Lever/Ashby → Job; salary and years-of-experience extraction
-    match.ts          #   Title matching and filters (runs in the browser)
+    companies.ts      #   Allowlist of ~160 employers: job board, slug, industry
+    normalize.ts      #   Greenhouse/Lever/Ashby/SmartRecruiters → Job; salary and years-of-experience extraction
+    usajobs.ts        #   USAJOBS (federal) title search → Job
+    match.ts          #   Title matching, filters, and per-filter stats (runs in the browser)
     locations.ts      #   Location dropdown options and aliases
 netlify/functions/    # Serverless API (TypeScript, modern Netlify Functions API)
   i-need-a-job-jobs.mts     # GET /api/i-need-a-job/jobs: one company's postings, CDN-cached 1h
+  i-need-a-job-usajobs.mts  # GET /api/i-need-a-job/usajobs?title=: federal postings; { disabled: true } without a key
 scripts/build-site.mjs      # Copies the static site into dist/
 netlify.toml                # Build, headers (noindex + CSP for hidden apps)
 ```
 
 ### i-need-a-job
 
-- **Job data comes from public job-board APIs** (Greenhouse, Lever, Ashby), not from scraping HTML. They're stable, intended for public use, and cover many well-known tech companies. To add a company, find its board slug, confirm the API returns jobs, and add it to `shared/companies.ts`. The jobs function only fetches allowlisted companies, so it can't be used as an open proxy.
-- **Search flow:** the browser fetches every company through the jobs function (six at a time), keeps all postings in memory, and filters them on the client. Changing filters after a search doesn't make new requests.
+- **Job data comes from public job-board APIs** (Greenhouse, Lever, Ashby, SmartRecruiters), not from scraping HTML. They're stable and intended for public use. Together they cover tech companies plus employers in finance, healthcare, retail, media, hospitality, aerospace and more. Workday has no public API, so Workday employers are out of scope.
+- **Adding a company:** find its board slug, confirm the API returns postings, and add it to `shared/companies.ts` with an industry. The jobs function only fetches allowlisted companies, so it can't be used as an open proxy.
+- **SmartRecruiters limits:** its list endpoint has no descriptions, so those postings never have salary or experience data. Each board is capped at 2,000 postings.
+- **Federal jobs (USAJOBS)** come from the official API, searched by title (one request per selected title), and are tagged with the "Nonprofit & Government" industry. The key is free, from developer.usajobs.gov. Without one, the function returns `{ disabled: true }` and the page says federal jobs aren't included.
+- **Considered and skipped:** Adzuna (free tier is 250 calls a day, requires logo attribution, and commercial use needs a license). Idealist and governmentjobs.com (no public APIs). Workday (no public API).
+- **Search flow:** the browser fetches every company through the jobs function, plus USAJOBS for each selected title, eight requests at a time (about 35k postings). It keeps all postings in memory and filters them on the client. Changing filters after a search doesn't make new requests. When nothing matches, the page says which filter removed the postings (`filterJobsWithStats`).
+- **Title matching:** strict mode requires every word of a selected title to appear in the posting title. Broad mode (on by default) applies to titles of 3+ words and requires the role word (the last word) plus at least half of the other words, including one that isn't generic (see `GENERIC_WORDS`). Seniority words are dropped from selected titles unless they're the last word ("Development Associate"), and are never dropped from posting titles.
+- **Ambiguous titles** match the wrong industry. "Program Director" matches tech program-management directors, and "Development Associate" matches business development roles. Pick posting-facing titles that are distinctive ("Director of Programs", "Philanthropy Manager") and keep the ambiguous wording as an alias, so it's still detected in resumes.
 - **No AI or LLM calls, by design.** Title suggestions are plain text processing in `shared/resume.ts`, and the resume never leaves the browser. Each family is scored as 4 × (its titles mentioned in the resume) + (distinct keyword hits). Mentioned titles are "close". Families scoring at least 35% of the best family are "related". Up to 10 titles from their adjacent families are "stretch". To improve suggestions, edit `shared/taxonomy.ts` and add a case to `shared/resume.test.ts`.
+- **Writing taxonomy entries:** some titles are too generic to detect in a resume (Server, Editor, Scientist), so they're marked `aliasesOnly` and only their aliases count as mentions. Avoid aliases and keywords with common other meanings, such as "Driver", "Producer" (Kafka), "Picker" (date picker) and "production".
 - **Years of experience** is the total of date ranges in work sections, with overlaps merged and education/projects/skills sections skipped.
-- **Known limits:** salary and years-of-experience values are parsed from posting text with regexes, so some postings have neither. Title matching is word-based: every word of a selected title must appear in the posting title, ignoring seniority words.
+- **Known limits:** salary and years-of-experience values are parsed from posting text with regexes, so some postings have neither. Coverage of nonprofits, local government and healthcare systems is thin, because most of them use Workday, NEOGOV or their own sites, which have no public APIs.
 
 The resume site is based on the **Ceevee** template by Styleshout and uses jQuery 1.10 with plugins. It has no build step of its own: its files are copied into `dist/` unchanged.
 

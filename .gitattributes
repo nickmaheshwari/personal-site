@@ -1,0 +1,2 @@
+# Keep LF in the working tree on Windows too, matching what Biome writes.
+* text=auto eol=lf
