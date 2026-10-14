@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { COMPANIES, type Company } from "../shared/companies.ts";
-import { type Filters, filterJobs } from "../shared/match.ts";
+import { COMPANIES, INDUSTRIES } from "../shared/companies.ts";
+import { type Filters, filterJobsWithStats } from "../shared/match.ts";
 import { analyzeResume } from "../shared/resume.ts";
 import type { Job, TitleFit } from "../shared/types.ts";
-import { fetchAllJobs } from "./api.ts";
+import { companyTask, runSearchTasks, type SearchTask, type TaskResult, usaJobsTask } from "./api.ts";
 import { extractText, MAX_BYTES, UnsupportedFileError } from "./extract.ts";
 import { FiltersPanel } from "./FiltersPanel.tsx";
 import { Results } from "./Results.tsx";
@@ -18,12 +18,19 @@ export interface TitleOption {
 export interface SearchState {
   running: boolean;
   done: number;
+  total: number;
   jobs: Job[];
   failed: { company: string; error: string }[];
+  /** Whether federal (USAJOBS) postings are in the results; "disabled" means no API key is configured. */
+  federal: "searching" | "included" | "disabled";
+  /** USAJOBS is searched by title, so it only covers the titles selected when the search ran. */
+  federalTitles: string[];
 }
 
 const initialFilters: Filters = {
   titles: [],
+  industries: [],
+  broadTitleMatch: true,
   remoteOnly: false,
   location: "",
   yearsOfExperience: null,
@@ -61,43 +68,58 @@ export function App() {
     }
   }
 
+  const selectedTitles = useMemo(() => (titles ?? []).filter((t) => t.selected).map((t) => t.title), [titles]);
+
   async function runSearch() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setSearch({ running: true, done: 0, jobs: [], failed: [] });
+    // Company boards return everything (filtered here); USAJOBS is searched per selected title.
+    const tasks = [...COMPANIES.map(companyTask), ...selectedTitles.map(usaJobsTask)];
+    setSearch({
+      running: true,
+      done: 0,
+      total: tasks.length,
+      jobs: [],
+      failed: [],
+      federal: "searching",
+      federalTitles: selectedTitles,
+    });
 
-    const onResult = (company: Company, result: { jobs: Job[] } | { error: string }) =>
-      setSearch(
-        (s) =>
-          s && {
-            ...s,
-            done: s.done + 1,
-            jobs: "jobs" in result ? s.jobs.concat(result.jobs) : s.jobs,
-            failed: "error" in result ? [...s.failed, { company: company.name, error: result.error }] : s.failed,
-          },
-      );
+    const onResult = (task: SearchTask, result: TaskResult) =>
+      setSearch((s) => {
+        if (!s) return s;
+        const next = { ...s, done: s.done + 1 };
+        if ("error" in result) {
+          next.failed = [...s.failed, { company: task.label, error: result.error }];
+        } else {
+          next.jobs = s.jobs.concat(result.jobs);
+          if (task.kind === "usajobs") next.federal = result.disabled ? "disabled" : "included";
+        }
+        return next;
+      });
 
-    await fetchAllJobs(COMPANIES, onResult, controller.signal);
+    await runSearchTasks(tasks, onResult, controller.signal);
     if (!controller.signal.aborted) setSearch((s) => s && { ...s, running: false });
   }
 
-  const selectedTitles = useMemo(() => (titles ?? []).filter((t) => t.selected).map((t) => t.title), [titles]);
-
   // Filters apply live to whatever has been fetched, so tweaking them after a
-  // search doesn't need another round of requests.
-  const matches = useMemo(
-    () => (search ? filterJobs(search.jobs, { ...filters, titles: selectedTitles }) : []),
-    [search, filters, selectedTitles],
-  );
+  // search doesn't need another round of requests. USAJOBS results for
+  // different titles can overlap, so drop duplicate postings first.
+  const { matches, stats } = useMemo(() => {
+    if (!search) return { matches: [], stats: null };
+    const seen = new Set<string>();
+    const unique = search.jobs.filter((j) => !seen.has(j.id) && seen.add(j.id));
+    return filterJobsWithStats(unique, { ...filters, titles: selectedTitles });
+  }, [search, filters, selectedTitles]);
 
   return (
     <main className="page">
       <header className="masthead">
         <h1>I Need a Job</h1>
         <p>
-          Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} tech companies.
-          Your resume is read in your browser and never uploaded.
+          Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} companies across{" "}
+          {INDUSTRIES.length} industries. Your resume is read in your browser and never uploaded.
         </p>
       </header>
 
@@ -115,7 +137,7 @@ export function App() {
         />
       )}
 
-      {search && <Results search={search} total={COMPANIES.length} matches={matches} />}
+      {search && stats && <Results search={search} matches={matches} stats={stats} />}
     </main>
   );
 }

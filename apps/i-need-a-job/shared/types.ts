@@ -1,3 +1,5 @@
+import type { Industry } from "./companies.ts";
+
 export type TitleFit = "close" | "related" | "stretch";
 
 export interface TitleSuggestion {
@@ -24,9 +26,13 @@ export interface Job {
   salary: { min: number; max: number; currency: string } | null;
   /** Minimum years of experience the posting asks for, when it states one. */
   minYears: number | null;
+  /** Set by search-based sources (USAJOBS) whose employers aren't in COMPANIES. */
+  industry?: Industry;
 }
 
 export interface JobsResponse {
+  /** True when the source is switched off (e.g. USAJOBS without an API key). */
+  disabled?: boolean;
   company: string;
   jobs: Job[];
 }

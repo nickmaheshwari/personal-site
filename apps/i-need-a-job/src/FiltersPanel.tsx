@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { INDUSTRIES, type Industry } from "../shared/companies.ts";
 import { LOCATIONS } from "../shared/locations.ts";
 import type { Filters } from "../shared/match.ts";
 import type { TitleOption } from "./App.tsx";
@@ -103,10 +104,43 @@ export function FiltersPanel({
         </button>
       </form>
 
+      <div className="title-group">
+        <h3>Industries {filters.industries.length === 0 && <span className="hint">(all)</span>}</h3>
+        <div className="chips">
+          {INDUSTRIES.map((industry) => {
+            const on = filters.industries.includes(industry);
+            const toggleIndustry = (i: Industry) =>
+              set("industries", on ? filters.industries.filter((x) => x !== i) : [...filters.industries, i]);
+            return (
+              <button
+                key={industry}
+                type="button"
+                className={`chip${on ? " selected" : ""}`}
+                aria-pressed={on}
+                onClick={() => toggleIndustry(industry)}
+              >
+                {industry}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="filters">
         <label className="field checkbox">
           <input type="checkbox" checked={filters.remoteOnly} onChange={(e) => set("remoteOnly", e.target.checked)} />
           <span>Remote only</span>
+        </label>
+
+        <label className="field checkbox">
+          <input
+            type="checkbox"
+            checked={filters.broadTitleMatch}
+            onChange={(e) => set("broadTitleMatch", e.target.checked)}
+          />
+          <span title='Long titles also match close variants, e.g. "Health and Wellness Coordinator" finds "Wellness Program Coordinator".'>
+            Broader title matching
+          </span>
         </label>
 
         <label className="field">
