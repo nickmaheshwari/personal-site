@@ -21,9 +21,10 @@ export function pdfItemsToText(items: readonly object[]): string {
 
 async function pdfToText(data: Uint8Array): Promise<string> {
   // Loaded on demand: pdf.js is large and only needed once a PDF is chosen.
+  // The legacy build bundles polyfills; the modern one needs Safari 18.4+ (global `Iterator`).
   const [{ getDocument, GlobalWorkerOptions }, { default: workerUrl }] = await Promise.all([
-    import("pdfjs-dist"),
-    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+    import("pdfjs-dist/legacy/build/pdf.mjs"),
+    import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
   ]);
   GlobalWorkerOptions.workerSrc = workerUrl;
   const task = getDocument({ data });
