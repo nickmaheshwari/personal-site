@@ -191,3 +191,21 @@ export function filterJobsWithStats(
 export function filterJobs(jobs: readonly Job[], filters: Filters): MatchedJob[] {
   return filterJobsWithStats(jobs, filters).matches;
 }
+
+/** Lowercased, with accents removed, so "Nestle" finds "Nestlé". */
+const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * The results search box: keeps jobs whose employer, title, location, industry or
+ * matched title contain every word of the query, in any order. An empty query keeps all.
+ */
+export function searchJobs(jobs: readonly MatchedJob[], query: string): MatchedJob[] {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [...jobs];
+  return jobs.filter((job) => {
+    const text = fold(
+      [job.title, job.company, job.location, job.matchedTitle, job.industry ?? industryOf(job.company) ?? ""].join(" "),
+    );
+    return words.every((w) => text.indexOf(w) !== -1);
+  });
+}

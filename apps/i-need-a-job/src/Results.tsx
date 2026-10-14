@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { FilterStats, MatchedJob } from "../shared/match.ts";
+import { type FilterStats, type MatchedJob, searchJobs } from "../shared/match.ts";
 import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
 import { postingUrl } from "./api.ts";
@@ -103,10 +103,12 @@ const age = (iso: string | null) => {
 
 export function Results({ search, matches, stats, tracker, onStatusChange, resumeText }: Props) {
   const [shown, setShown] = useState(PAGE);
+  const [query, setQuery] = useState("");
   const sorted = useMemo(
     () => [...matches].sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? "")),
     [matches],
   );
+  const visible = useMemo(() => searchJobs(sorted, query), [sorted, query]);
   const companies = new Set(matches.map((m) => m.company)).size;
 
   return (
@@ -139,8 +141,37 @@ export function Results({ search, matches, stats, tracker, onStatusChange, resum
 
       {!search.running && matches.length === 0 && <p className="empty">{noMatchesHint(stats)}</p>}
 
+      {matches.length > 0 && (
+        <div className="results-search">
+          <input
+            type="search"
+            aria-label="Search matching jobs"
+            placeholder="Search by employer, title, location…"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setShown(PAGE);
+            }}
+          />
+          {query.trim() && (
+            <p className="hint" aria-live="polite">
+              {visible.length === 0 ? (
+                <>
+                  No matching jobs contain "{query.trim()}".{" "}
+                  <button type="button" className="link" onClick={() => setQuery("")}>
+                    Clear search
+                  </button>
+                </>
+              ) : (
+                `Showing ${visible.length} of ${matches.length} matches`
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
       <ul className="jobs">
-        {sorted.slice(0, shown).map((job) => (
+        {visible.slice(0, shown).map((job) => (
           <li key={job.id} className="job">
             <div className="job-main">
               <a href={job.url} target="_blank" rel="noopener noreferrer" className="job-title">
@@ -170,10 +201,10 @@ export function Results({ search, matches, stats, tracker, onStatusChange, resum
         ))}
       </ul>
 
-      {sorted.length > shown && (
+      {visible.length > shown && (
         <div className="actions">
           <button type="button" onClick={() => setShown((n) => n + PAGE)}>
-            Show more ({sorted.length - shown} remaining)
+            Show more ({visible.length - shown} remaining)
           </button>
         </div>
       )}
