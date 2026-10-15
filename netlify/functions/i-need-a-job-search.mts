@@ -40,7 +40,10 @@ export default async (req: Request) => {
       return json(body, 200);
     }
     try {
-      return cached({ company: "USAJOBS", jobs: await searchUsaJobs(title, { apiKey, email }, AbortSignal.timeout(25_000)) });
+      return cached({
+        company: "USAJOBS",
+        jobs: await searchUsaJobs(title, { apiKey, email }, AbortSignal.timeout(25_000)),
+      });
     } catch (err) {
       console.error(`USAJOBS search failed for "${title}"`, err);
       return json({ error: "Couldn't load federal jobs." }, 502);

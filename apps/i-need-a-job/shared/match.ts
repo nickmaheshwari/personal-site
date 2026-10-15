@@ -209,3 +209,18 @@ export function searchJobs(jobs: readonly MatchedJob[], query: string): MatchedJ
     return words.every((w) => text.indexOf(w) !== -1);
   });
 }
+
+/**
+ * Drops repeated postings: the same ID (per-title searches overlap), and job-site
+ * listings (`via`) of a posting already found on the employer's own board.
+ */
+export function dedupeJobs(jobs: readonly Job[]): Job[] {
+  const key = (j: Job) => `${fold(j.company).replace(/[^a-z0-9]/g, "")}|${fold(j.title)}`;
+  const direct = new Set(jobs.filter((j) => !j.via).map(key));
+  const seen = new Set<string>();
+  return jobs.filter((j) => {
+    if (seen.has(j.id) || (j.via && direct.has(key(j)))) return false;
+    seen.add(j.id);
+    return true;
+  });
+}

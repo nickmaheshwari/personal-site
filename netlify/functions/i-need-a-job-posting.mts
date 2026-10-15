@@ -14,7 +14,12 @@ export default async (req: Request) => {
   const company = findCompany(params.get("source") ?? "", params.get("slug") ?? "");
   const id = params.get("id") ?? "";
   if (!company) return json({ error: "Unknown company." }, 404);
-  if (!/^[\w-]{1,80}$/.test(id)) return json({ error: "Invalid posting id." }, 400);
+  // Workday postings are identified by their path on the career site.
+  const validId =
+    company.source === "workday"
+      ? id.length <= 300 && /^\/job(\/[\w%.()~-]+)+$/.test(id) && !id.includes("..")
+      : /^[\w-]{1,80}$/.test(id);
+  if (!validId) return json({ error: "Invalid posting id." }, 400);
 
   try {
     const text = await fetchPostingText(company, id, AbortSignal.timeout(25_000));

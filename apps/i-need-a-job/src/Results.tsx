@@ -14,6 +14,9 @@ interface Props {
   onStatusChange: (job: Job, status: Status | null) => void;
   /** The uploaded resume's text, for the keyword check; null if none is loaded. */
   resumeText: string | null;
+  /** The selected titles differ from the ones these results were searched for. */
+  titlesChanged: boolean;
+  onSearchAgain: () => void;
 }
 
 interface JobActionsProps {
@@ -101,7 +104,16 @@ const age = (iso: string | null) => {
         : `${Math.floor(days / 30)} months ago`;
 };
 
-export function Results({ search, matches, stats, tracker, onStatusChange, resumeText }: Props) {
+export function Results({
+  search,
+  matches,
+  stats,
+  tracker,
+  onStatusChange,
+  resumeText,
+  titlesChanged,
+  onSearchAgain,
+}: Props) {
   const [shown, setShown] = useState(PAGE);
   const [query, setQuery] = useState("");
   const sorted = useMemo(
@@ -120,15 +132,19 @@ export function Results({ search, matches, stats, tracker, onStatusChange, resum
       <div className="progress" aria-live="polite">
         <progress value={search.done} max={search.total} />
         <span>
-          {search.running ? `Searching ${search.done} of ${search.total} sources` : `Searched ${search.total} sources`}{" "}
+          {search.running
+            ? `Searching ${search.done} of ${search.total} employers and job sites`
+            : `Searched ${search.total} employers and job sites`}{" "}
           · <strong>{matches.length}</strong> matches at {companies} {companies === 1 ? "employer" : "employers"}
         </span>
       </div>
 
-      {search.federal === "included" && (
+      {titlesChanged && (
         <p className="hint">
-          Includes federal jobs from USAJOBS for the {search.federalTitles.length} titles selected when you searched.
-          Search again after changing titles to update them.
+          These results are for the {search.titles.length} titles selected when you searched.{" "}
+          <button type="button" className="link" onClick={onSearchAgain}>
+            Search again with your current titles
+          </button>
         </p>
       )}
       {search.federal === "disabled" && (
@@ -136,7 +152,10 @@ export function Results({ search, matches, stats, tracker, onStatusChange, resum
       )}
 
       {search.failed.length > 0 && (
-        <p className="hint">Couldn't load: {search.failed.map((f) => f.company).join(", ")}</p>
+        <details className="hint">
+          <summary>Couldn't load {search.failed.length} sources</summary>
+          {search.failed.join(", ")}
+        </details>
       )}
 
       {!search.running && matches.length === 0 && <p className="empty">{noMatchesHint(stats)}</p>}
@@ -177,7 +196,17 @@ export function Results({ search, matches, stats, tracker, onStatusChange, resum
               <a href={job.url} target="_blank" rel="noopener noreferrer" className="job-title">
                 {job.title}
               </a>
-              <span className="job-company">{job.company}</span>
+              <span className="job-company">
+                {job.company}
+                {job.via && (
+                  <>
+                    {" · via "}
+                    <a href={job.url} target="_blank" rel="noopener noreferrer">
+                      {job.via}
+                    </a>
+                  </>
+                )}
+              </span>
             </div>
             <div className="job-meta">
               {job.location && <span>{job.location}</span>}

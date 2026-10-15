@@ -8,7 +8,7 @@ const fn = (name: string) => fileURLToPath(new URL(`../../netlify/functions/${na
 /** Netlify Functions this app calls, served from the Vite dev server by path. */
 const LOCAL_FUNCTIONS: Record<string, string> = {
   "/api/i-need-a-job/jobs": fn("i-need-a-job-jobs"),
-  "/api/i-need-a-job/usajobs": fn("i-need-a-job-usajobs"),
+  "/api/i-need-a-job/search": fn("i-need-a-job-search"),
   "/api/i-need-a-job/posting": fn("i-need-a-job-posting"),
 };
 
