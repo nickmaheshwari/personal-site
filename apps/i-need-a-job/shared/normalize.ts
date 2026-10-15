@@ -2,6 +2,7 @@
 // into compact Job records. Runs server-side only (in the jobs function).
 
 import type { Company } from "./companies.ts";
+import { findKeywords } from "./keywords.ts";
 import { matchTitle, tokenize } from "./match.ts";
 import type { Job } from "./types.ts";
 
@@ -98,6 +99,7 @@ export function normalizeGreenhouse(company: Company, data: { jobs: GreenhouseJo
       postedAt: j.first_published ?? j.updated_at ?? null,
       salary: extractSalary(text),
       minYears: extractMinYears(text),
+      skills: findKeywords(text),
     };
   });
 }
@@ -145,6 +147,7 @@ export function normalizeLever(company: Company, data: LeverJob[]): Job[] {
       postedAt: j.createdAt ? new Date(j.createdAt).toISOString() : null,
       salary: structuredSalary ?? extractSalary(text),
       minYears: extractMinYears(text),
+      skills: findKeywords(text),
     };
   });
 }
@@ -201,6 +204,7 @@ export function normalizeAshby(company: Company, data: { jobs: AshbyJob[] }): Jo
             }
           : extractSalary(text),
         minYears: extractMinYears(text),
+        skills: findKeywords(text),
       };
     });
 }
@@ -385,6 +389,7 @@ export function normalizeGem(company: Company, data: GemJob[]): Job[] {
       postedAt: j.first_published_at ?? null,
       salary: extractSalary(text),
       minYears: extractMinYears(text),
+      skills: findKeywords(text),
     };
   });
 }

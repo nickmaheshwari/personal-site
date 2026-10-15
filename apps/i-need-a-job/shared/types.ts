@@ -28,6 +28,11 @@ export interface Job {
   salary: { min: number; max: number; currency: string } | null;
   /** Minimum years of experience the posting asks for, when it states one. */
   minYears: number | null;
+  /**
+   * Skill keywords (see keywords.ts) the posting's description mentions. Absent
+   * for sources whose lists have no descriptions (Workday, Oracle, SmartRecruiters…).
+   */
+  skills?: string[];
   /** Set by search-based sources (USAJOBS) whose employers aren't in COMPANIES. */
   industry?: Industry;
   /**

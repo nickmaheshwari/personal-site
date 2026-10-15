@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { type FilterStats, type MatchedJob, searchJobs } from "../shared/match.ts";
+import { type FilterStats, filterBySkills, jobSkills, type MatchedJob, searchJobs } from "../shared/match.ts";
 import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
 import { postingUrl } from "./api.ts";
+import { ReportButton } from "./Feedback.tsx";
 import { FitCheck } from "./FitCheck.tsx";
 import { STATUS_LABELS, STATUSES, type Status, type Tracker } from "./tracker.ts";
 
@@ -14,6 +15,8 @@ interface Props {
   onStatusChange: (job: Job, status: Status | null) => void;
   /** The uploaded resume's text, for the keyword check; null if none is loaded. */
   resumeText: string | null;
+  /** The resume's top skills (see topSkills), offered as toggles to narrow the results. */
+  resumeSkills: string[];
   /** The selected titles differ from the ones these results were searched for. */
   titlesChanged: boolean;
   onSearchAgain: () => void;
@@ -111,6 +114,7 @@ export function Results({
   tracker,
   onStatusChange,
   resumeText,
+  resumeSkills,
   titlesChanged,
   onSearchAgain,
 }: Props) {
@@ -120,8 +124,23 @@ export function Results({
     () => [...matches].sort((a, b) => (b.postedAt ?? "").localeCompare(a.postedAt ?? "")),
     [matches],
   );
-  const visible = useMemo(() => searchJobs(sorted, query), [sorted, query]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const visible = useMemo(
+    () => filterBySkills(searchJobs(sorted, query), selectedSkills),
+    [sorted, query, selectedSkills],
+  );
   const companies = new Set(matches.map((m) => m.company)).size;
+  const narrowed = query.trim() !== "" || selectedSkills.length > 0;
+  // Postings from sources without descriptions can only match skills named in their title.
+  const undescribed = selectedSkills.length > 0 && matches.some((m) => !m.skills);
+  const toggleSkill = (skill: string) => {
+    setSelectedSkills((s) => (s.includes(skill) ? s.filter((x) => x !== skill) : [...s, skill]));
+    setShown(PAGE);
+  };
+  const clearFilters = () => {
+    setQuery("");
+    setSelectedSkills([]);
+  };
 
   return (
     <section className="card">
@@ -154,7 +173,10 @@ export function Results({
       {search.failed.length > 0 && (
         <details className="hint">
           <summary>Couldn't load {search.failed.length} sources</summary>
-          {search.failed.join(", ")}
+          {search.failed.join(", ")}.{" "}
+          <ReportButton
+            problem={`Couldn't load ${search.failed.length} sources: ${search.failed.join(", ")}\nTitles: ${search.titles.join(", ")}`}
+          />
         </details>
       )}
       {search.partial.length > 0 && (
@@ -179,18 +201,37 @@ export function Results({
               setShown(PAGE);
             }}
           />
-          {query.trim() && (
+          {resumeSkills.length > 0 && (
+            <div className="skill-filter">
+              <span className="hint">Mentions skills from your resume:</span>
+              <div className="chips">
+                {resumeSkills.map((skill) => {
+                  const on = selectedSkills.includes(skill);
+                  return (
+                    <button
+                      key={skill}
+                      type="button"
+                      className={`chip${on ? " selected" : ""}`}
+                      aria-pressed={on}
+                      onClick={() => toggleSkill(skill)}
+                    >
+                      {skill}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {narrowed && (
             <p className="hint" aria-live="polite">
-              {visible.length === 0 ? (
-                <>
-                  No matching jobs contain "{query.trim()}".{" "}
-                  <button type="button" className="link" onClick={() => setQuery("")}>
-                    Clear search
-                  </button>
-                </>
-              ) : (
-                `Showing ${visible.length} of ${matches.length} matches`
-              )}
+              {visible.length === 0
+                ? "No matching jobs fit your search and skills."
+                : `Showing ${visible.length} of ${matches.length} matches.`}{" "}
+              <button type="button" className="link" onClick={clearFilters}>
+                Clear
+              </button>
+              {undescribed &&
+                " Some job boards don't share descriptions, so their jobs only match a skill named in the job title."}
             </p>
           )}
         </div>
@@ -226,6 +267,17 @@ export function Results({
               {job.minYears !== null && <span>{job.minYears}+ yrs</span>}
               {age(job.postedAt) && <span>{age(job.postedAt)}</span>}
               <span className="badge subtle">{job.matchedTitle}</span>
+              {resumeSkills.length > 0 &&
+                (() => {
+                  const have = jobSkills(job);
+                  return resumeSkills
+                    .filter((s) => have.has(s))
+                    .map((s) => (
+                      <span key={s} className="badge skill">
+                        {s}
+                      </span>
+                    ));
+                })()}
             </div>
             <JobActions
               job={job}

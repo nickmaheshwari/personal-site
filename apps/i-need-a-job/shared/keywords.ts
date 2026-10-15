@@ -29,10 +29,50 @@ for (const k of FAMILIES.flatMap((f) => f.keywords)) {
   if (!spellings.includes(k)) spellings.push(k);
   groups.set(variantKey(k), spellings);
 }
+const wordsOf = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+
 const KEYWORDS = [...groups.values()].map((spellings) => ({
   keyword: spellings[0] ?? "",
-  patterns: spellings.map(phraseRegExp),
+  spellings: spellings.map((s) => ({ pattern: phraseRegExp(s), words: [...new Set(wordsOf(s))] })),
 }));
+
+/** Could the text contain these words? Also true when they're run together ("HelpDesk" for "help desk"). */
+const mayContain = (present: ReadonlySet<string>, words: readonly string[]) =>
+  words.every((w) => present.has(w)) || present.has(words.join(""));
+
+/**
+ * Every skill keyword the text mentions. Each keyword's words are checked
+ * against the text's words first, and only candidates get the exact regex:
+ * running all ~600 regexes took ~2 ms per posting, too slow for 100k postings.
+ */
+export function findKeywords(text: string): string[] {
+  const present = new Set(wordsOf(text));
+  return KEYWORDS.filter(({ spellings }) =>
+    spellings.some((s) => mayContain(present, s.words) && s.pattern.test(text)),
+  ).map((k) => k.keyword);
+}
+
+/**
+ * A resume's most-mentioned skill keywords, most mentions first (ties keep
+ * taxonomy order), for the results' skill filter.
+ */
+export function topSkills(resumeText: string, max = 7): string[] {
+  const found = new Set(findKeywords(resumeText));
+  const mentions = (keyword: string) => {
+    const k = KEYWORDS.find((x) => x.keyword === keyword);
+    return Math.max(
+      0,
+      ...(k?.spellings ?? []).map(
+        (s) => resumeText.match(new RegExp(s.pattern.source, `${s.pattern.flags}g`))?.length ?? 0,
+      ),
+    );
+  };
+  return [...found]
+    .map((keyword, order) => ({ keyword, order, count: mentions(keyword) }))
+    .sort((a, b) => b.count - a.count || a.order - b.order)
+    .slice(0, max)
+    .map((s) => s.keyword);
+}
 
 export interface KeywordComparison {
   /** Posting keywords the resume also mentions. */
@@ -42,11 +82,9 @@ export interface KeywordComparison {
 }
 
 export function compareKeywords(resumeText: string, jobText: string): KeywordComparison {
+  const inResume = new Set(findKeywords(resumeText));
   const matched: string[] = [];
   const missing: string[] = [];
-  for (const { keyword, patterns } of KEYWORDS) {
-    if (!patterns.some((p) => p.test(jobText))) continue;
-    (patterns.some((p) => p.test(resumeText)) ? matched : missing).push(keyword);
-  }
+  for (const keyword of findKeywords(jobText)) (inResume.has(keyword) ? matched : missing).push(keyword);
   return { matched, missing };
 }

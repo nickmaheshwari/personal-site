@@ -1,8 +1,9 @@
 import { type FormEvent, useState } from "react";
+import { ReportButton } from "./Feedback.tsx";
 
 interface Props {
   analyzing: boolean;
-  error: string | null;
+  error: { message: string; problem: string } | null;
   onAnalyze: (file: File) => void;
 }
 
@@ -55,7 +56,7 @@ export function Upload({ analyzing, error, onAnalyze }: Props) {
         </div>
         {error && (
           <p className="error" role="alert">
-            {error}
+            {error.message} <ReportButton problem={error.problem} />
           </p>
         )}
       </form>

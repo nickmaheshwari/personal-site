@@ -2,6 +2,7 @@
 // and filters. Pure functions so they're easy to test.
 
 import { type Industry, industryOf } from "./companies.ts";
+import { findKeywords } from "./keywords.ts";
 import { locationMatches } from "./locations.ts";
 import type { Job } from "./types.ts";
 
@@ -223,4 +224,22 @@ export function dedupeJobs(jobs: readonly Job[]): Job[] {
     seen.add(j.id);
     return true;
   });
+}
+
+/**
+ * The results' skill toggles: keeps jobs that mention every selected skill.
+ * Postings from sources without descriptions (no `skills`) can only match a
+ * skill named in their title.
+ */
+export function filterBySkills(jobs: readonly MatchedJob[], skills: readonly string[]): MatchedJob[] {
+  if (skills.length === 0) return [...jobs];
+  return jobs.filter((job) => {
+    const have = jobSkills(job);
+    return skills.every((s) => have.has(s));
+  });
+}
+
+/** The skills a job mentions in its description (when the source has one) or title. */
+export function jobSkills(job: Job): Set<string> {
+  return new Set([...(job.skills ?? []), ...findKeywords(job.title)]);
 }

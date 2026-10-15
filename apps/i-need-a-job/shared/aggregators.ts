@@ -7,6 +7,7 @@
 // Arbeitnow (almost all German-language postings), The Muse (no title search,
 // and it requires registering an app).
 
+import { findKeywords } from "./keywords.ts";
 import { extractMinYears, extractSalary, htmlToText } from "./normalize.ts";
 import type { Job } from "./types.ts";
 
@@ -52,6 +53,7 @@ export function normalizeHimalayas(jobs: HimalayasJob[]): Job[] {
       postedAt: j.pubDate ? new Date(j.pubDate * 1000).toISOString() : null,
       salary,
       minYears: extractMinYears(text),
+      skills: findKeywords(text),
       via: "Himalayas",
     };
   });
@@ -109,6 +111,7 @@ export function normalizeJobicy(jobs: JobicyJob[]): Job[] {
       postedAt: j.pubDate ?? null,
       salary,
       minYears: extractMinYears(text),
+      skills: findKeywords(text),
       via: "Jobicy",
     };
   });
