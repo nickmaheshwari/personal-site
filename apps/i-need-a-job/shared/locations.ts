@@ -96,9 +96,10 @@ export const LOCATIONS: readonly LocationOption[] = [
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Word boundaries only where the alias itself starts/ends with a word character,
-// so ", TX" still matches "Austin, TX".
+// so ", TX" still matches "Austin, TX". The start boundary consumes the preceding
+// character rather than using lookbehind, which older Safari can't parse.
 const wholeWord = (alias: string) =>
-  `${/^\w/.test(alias) ? "(?<!\\w)" : ""}${escapeRegExp(alias)}${/\w$/.test(alias) ? "(?!\\w)" : ""}`;
+  `${/^\w/.test(alias) ? "(?:^|[^\\w])" : ""}${escapeRegExp(alias)}${/\w$/.test(alias) ? "(?!\\w)" : ""}`;
 
 const matchers = new Map(LOCATIONS.map((loc) => [loc.label, new RegExp(loc.aliases.map(wholeWord).join("|"), "i")]));
 
