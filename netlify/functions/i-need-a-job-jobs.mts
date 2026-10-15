@@ -12,29 +12,44 @@
 import type { Config } from "@netlify/functions";
 import { BATCHES, type Company, SEARCH_SOURCES } from "../../apps/i-need-a-job/shared/companies.ts";
 import { matchTitle, tokenize } from "../../apps/i-need-a-job/shared/match.ts";
-import { fetchCompanyJobs } from "../../apps/i-need-a-job/shared/normalize.ts";
+import { fetchCompanyJobs, searchCompanyJobs } from "../../apps/i-need-a-job/shared/normalize.ts";
 import type { BatchResponse, Job } from "../../apps/i-need-a-job/shared/types.ts";
 
 const MAX_TITLES = 20;
 const CACHE_MS = 60 * 60 * 1000;
+// Functions are stopped after 60 seconds. Title searches stop starting new
+// titles after SEARCH_BUDGET_MS and are aborted at SEARCH_TIMEOUT_MS, keeping
+// whatever they found.
+const BOARD_TIMEOUT_MS = 25_000;
+const SEARCH_BUDGET_MS = 35_000;
+const SEARCH_TIMEOUT_MS = 50_000;
 
 const json = (body: unknown, status: number, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
-const cache = new Map<string, { at: number; jobs: Promise<Job[]> }>();
+type Result = { jobs: Job[]; complete: boolean };
 
-/** A company's postings, from memory when fetched within the hour. Failed fetches aren't kept. */
-function cachedJobs(company: Company, titles: readonly string[]): Promise<Job[]> {
+const cache = new Map<string, { at: number; result: Promise<Result> }>();
+
+/**
+ * A company's postings, from memory when fetched within the hour. Failed and
+ * partial results aren't kept, so the next search tries again.
+ */
+function cachedJobs(company: Company, titles: readonly string[]): Promise<Result> {
   // Title searches depend on the titles; job boards don't.
-  const key = SEARCH_SOURCES.has(company.source)
-    ? `${company.source}:${company.slug}:${titles.join("|")}`
-    : `${company.source}:${company.slug}`;
+  const search = SEARCH_SOURCES.has(company.source);
+  const key = search ? `${company.source}:${company.slug}:${titles.join("|")}` : `${company.source}:${company.slug}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.jobs;
-  const jobs = fetchCompanyJobs(company, titles, AbortSignal.timeout(25_000));
-  cache.set(key, { at: Date.now(), jobs });
-  jobs.catch(() => cache.delete(key));
-  return jobs;
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.result;
+  const result = search
+    ? searchCompanyJobs(company, titles, SEARCH_BUDGET_MS, AbortSignal.timeout(SEARCH_TIMEOUT_MS))
+    : fetchCompanyJobs(company, AbortSignal.timeout(BOARD_TIMEOUT_MS)).then((jobs) => ({ jobs, complete: true }));
+  cache.set(key, { at: Date.now(), result });
+  result.then(
+    (r) => r.complete || cache.delete(key),
+    () => cache.delete(key),
+  );
+  return result;
 }
 
 export default async (req: Request) => {
@@ -49,7 +64,7 @@ export default async (req: Request) => {
   const selected = titles.map((t) => tokenize(t));
 
   const results = await Promise.allSettled(batch.map((company) => cachedJobs(company, titles)));
-  const body: BatchResponse = { jobs: [], failed: [] };
+  const body: BatchResponse = { jobs: [], failed: [], partial: [] };
   results.forEach((result, i) => {
     const company = batch[i] as Company;
     if (result.status === "rejected") {
@@ -57,14 +72,18 @@ export default async (req: Request) => {
       body.failed.push(company.name);
       return;
     }
-    for (const job of result.value) if (matchTitle(job.title, selected, true) >= 0) body.jobs.push(job);
+    if (!result.value.complete) {
+      console.warn(`Partial results for ${company.source}/${company.slug}: ran out of time`);
+      body.partial.push(company.name);
+    }
+    for (const job of result.value.jobs) if (matchTitle(job.title, selected, true) >= 0) body.jobs.push(job);
   });
 
   return json(body, 200, {
     "Cache-Control": "public, max-age=0, must-revalidate",
-    // Partial failures are cached briefly, so a flaky job board is retried soon.
+    // Failed and partial results are cached briefly, so they're retried soon.
     "Netlify-CDN-Cache-Control":
-      body.failed.length > 0
+      body.failed.length > 0 || body.partial.length > 0
         ? "public, durable, s-maxage=300"
         : "public, durable, s-maxage=3600, stale-while-revalidate=86400",
   });

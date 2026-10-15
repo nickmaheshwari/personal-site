@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeHimalayas, normalizeJobicy } from "./aggregators.ts";
 import { BATCHES, COMPANIES, type Company, SEARCH_SOURCES } from "./companies.ts";
 import { dedupeJobs } from "./match.ts";
@@ -9,6 +9,7 @@ import {
   normalizeOracle,
   normalizeRippling,
   normalizeWorkday,
+  searchCompanyJobs,
   workdayPostedAt,
 } from "./normalize.ts";
 import type { Job } from "./types.ts";
@@ -203,5 +204,34 @@ describe("dedupeJobs", () => {
       job({ id: "himalayas:2", company: "Other Co", via: "Himalayas" }),
     ];
     expect(dedupeJobs(jobs).map((j) => j.id)).toEqual(["greenhouse:acme:1", "himalayas:2"]);
+  });
+});
+
+describe("searchCompanyJobs", () => {
+  const pnc = co("workday", "pnc/wd5/External");
+  // Answers Workday searches: one posting per title, or a server error for "Broken".
+  const fakeWorkday = vi.fn(async (_url: string, init?: RequestInit) => {
+    const { searchText } = JSON.parse(String(init?.body)) as { searchText: string };
+    if (searchText === "Broken") return new Response("", { status: 500 });
+    return Response.json({ total: 1, jobPostings: [{ title: searchText, externalPath: `/job/${searchText}` }] });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("keeps the titles that worked when another fails", async () => {
+    vi.stubGlobal("fetch", fakeWorkday);
+    const { jobs, complete } = await searchCompanyJobs(pnc, ["Accountant", "Broken", "Auditor"], 10_000);
+    expect(jobs.map((j) => j.title).sort()).toEqual(["Accountant", "Auditor"]);
+    expect(complete).toBe(false);
+  });
+
+  it("is complete when every title worked", async () => {
+    vi.stubGlobal("fetch", fakeWorkday);
+    expect((await searchCompanyJobs(pnc, ["Accountant"], 10_000)).complete).toBe(true);
+  });
+
+  it("fails only when nothing worked", async () => {
+    vi.stubGlobal("fetch", fakeWorkday);
+    await expect(searchCompanyJobs(pnc, ["Broken"], 10_000)).rejects.toThrow("workday returned 500");
   });
 });

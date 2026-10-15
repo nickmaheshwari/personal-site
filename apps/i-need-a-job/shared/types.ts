@@ -50,4 +50,6 @@ export interface JobsResponse {
 export interface BatchResponse {
   jobs: Job[];
   failed: string[];
+  /** Title-searched employers that ran out of time before searching every title. */
+  partial: string[];
 }

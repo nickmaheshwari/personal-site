@@ -157,6 +157,13 @@ export function Results({
           {search.failed.join(", ")}
         </details>
       )}
+      {search.partial.length > 0 && (
+        <details className="hint">
+          <summary>Some results may be missing from {search.partial.length} large employers</summary>
+          These employers' career sites were slow, so not every title was searched: {search.partial.join(", ")}. Search
+          again in a few minutes, or with fewer titles, to fill them in.
+        </details>
+      )}
 
       {!search.running && matches.length === 0 && <p className="empty">{noMatchesHint(stats)}</p>}
 

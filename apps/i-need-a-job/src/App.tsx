@@ -24,6 +24,8 @@ export interface SearchState {
   total: number;
   jobs: Job[];
   failed: string[];
+  /** Employers that ran out of time and returned only some of their matching postings. */
+  partial: string[];
   /** Whether federal (USAJOBS) postings are in the results; "disabled" means no API key is configured. */
   federal: "searching" | "included" | "disabled";
   /** Postings are matched to titles when they're fetched, so results only cover the titles selected when the search ran. */
@@ -94,6 +96,7 @@ export function App() {
       total: tasks.reduce((n, t) => n + t.weight, 0),
       jobs: [],
       failed: [],
+      partial: [],
       federal: "searching",
       titles: selectedTitles,
     });
@@ -107,6 +110,7 @@ export function App() {
         } else {
           next.jobs = s.jobs.concat(result.jobs);
           if (result.failed.length > 0) next.failed = [...s.failed, ...result.failed];
+          if (result.partial.length > 0) next.partial = [...s.partial, ...result.partial];
           if (task.kind === "usajobs") next.federal = result.disabled ? "disabled" : "included";
         }
         return next;
