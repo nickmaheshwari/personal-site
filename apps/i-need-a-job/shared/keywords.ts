@@ -88,3 +88,9 @@ export function compareKeywords(resumeText: string, jobText: string): KeywordCom
   for (const keyword of findKeywords(jobText)) (inResume.has(keyword) ? matched : missing).push(keyword);
   return { matched, missing };
 }
+
+/** A typed skill as the keyword it names ("Node.js" → "node.js"), or null if it isn't one we track. */
+export function trackedSkill(text: string): string | null {
+  const typed = wordsOf(text).join("");
+  return findKeywords(text).find((k) => wordsOf(k).join("") === typed) ?? null;
+}

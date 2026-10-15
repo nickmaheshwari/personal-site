@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareKeywords, findKeywords, topSkills } from "./keywords.ts";
+import { compareKeywords, findKeywords, topSkills, trackedSkill } from "./keywords.ts";
 import { filterBySkills, type MatchedJob } from "./match.ts";
 
 describe("compareKeywords", () => {
@@ -76,5 +76,47 @@ describe("filterBySkills", () => {
     expect(ids(["python"])).toEqual(["described"]);
     expect(ids(["sql"])).toEqual(["title-only"]);
     expect(ids(["python", "sql"])).toEqual([]);
+  });
+});
+
+describe("typed skills", () => {
+  it("maps a typed skill to the keyword it names, or null", () => {
+    expect(trackedSkill("Tableau")).toBe("tableau");
+    expect(trackedSkill("NodeJS")).toBe(trackedSkill("node.js"));
+    expect(trackedSkill("underwater basket weaving")).toBeNull();
+    // A longer phrase that merely contains a keyword isn't that keyword.
+    expect(trackedSkill("python scripting")).toBeNull();
+  });
+
+  it("matches skills we don't track against job titles only", () => {
+    const jobs = [
+      {
+        id: "a",
+        company: "Acme",
+        title: "Salesforce Admin",
+        location: "",
+        remote: false,
+        url: "",
+        postedAt: null,
+        salary: null,
+        minYears: null,
+        matchedTitle: "",
+        skills: [],
+      },
+      {
+        id: "b",
+        company: "Acme",
+        title: "Analyst",
+        location: "",
+        remote: false,
+        url: "",
+        postedAt: null,
+        salary: null,
+        minYears: null,
+        matchedTitle: "",
+        skills: [],
+      },
+    ] satisfies MatchedJob[];
+    expect(filterBySkills(jobs, ["Salesforce Admin"]).map((j) => j.id)).toEqual(["a"]);
   });
 });
