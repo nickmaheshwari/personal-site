@@ -10,10 +10,12 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  * Matches a phrase as whole words, tolerating hyphen/space differences.
  * Short all-caps acronyms (SRE, PM, TAM) match case-sensitively so "pm" in
  * "5pm" or "tam" in a name don't count.
+ * Only for .test(): the start boundary consumes the preceding character, since
+ * lookbehind (?<!…) needs Safari 16.4+ and is a syntax error in older browsers.
  */
 export function phraseRegExp(phrase: string): RegExp {
   const body = escapeRegExp(phrase).replace(/(?:\\-|\s)+/g, "[\\s-]*");
-  const start = /^\w/.test(phrase) ? "(?<![\\w])" : "";
+  const start = /^\w/.test(phrase) ? "(?:^|[^\\w])" : "";
   const end = /\w$/.test(phrase) ? "(?![\\w])" : "";
   const caseSensitive = phrase.length <= 4 && phrase === phrase.toUpperCase() && /[A-Z]/.test(phrase);
   return new RegExp(`${start}${body}${end}`, caseSensitive ? "" : "i");
