@@ -469,3 +469,18 @@ pre.details {
   justify-content: space-between;
   gap: 12px;
 }
+
+.skill-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Resume skills the job mentions: outlined, so they read differently from the matched title. */
+.badge.skill {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}

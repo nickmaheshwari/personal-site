@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGGREGATORS } from "../shared/aggregators.ts";
 import { COMPANIES, INDUSTRIES } from "../shared/companies.ts";
+import { topSkills } from "../shared/keywords.ts";
 import { dedupeJobs, type Filters, filterJobsWithStats } from "../shared/match.ts";
 import { analyzeResume } from "../shared/resume.ts";
 import type { Job, TitleFit } from "../shared/types.ts";
@@ -97,6 +98,7 @@ export function App() {
   }
 
   const selectedTitles = useMemo(() => (titles ?? []).filter((t) => t.selected).map((t) => t.title), [titles]);
+  const resumeSkills = useMemo(() => (resumeText ? topSkills(resumeText) : []), [resumeText]);
 
   async function runSearch() {
     abortRef.current?.abort();
@@ -235,6 +237,7 @@ export function App() {
             tracker={tracker}
             onStatusChange={setStatus}
             resumeText={resumeText}
+            resumeSkills={resumeSkills}
             titlesChanged={titlesChanged && !search.running}
             onSearchAgain={runSearch}
           />
