@@ -484,3 +484,18 @@ pre.details {
   color: var(--text);
   border: 1px solid var(--border);
 }
+
+.add-skill {
+  display: flex;
+  gap: 6px;
+}
+
+.add-skill input[type="text"] {
+  width: 10em;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.tracker-hint {
+  margin: 16px 0 0;
+}

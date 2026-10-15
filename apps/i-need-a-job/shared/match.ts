@@ -4,6 +4,7 @@
 import { type Industry, industryOf } from "./companies.ts";
 import { findKeywords } from "./keywords.ts";
 import { locationMatches } from "./locations.ts";
+import { phraseRegExp } from "./resume.ts";
 import type { Job } from "./types.ts";
 
 export interface Filters {
@@ -229,13 +230,14 @@ export function dedupeJobs(jobs: readonly Job[]): Job[] {
 /**
  * The results' skill toggles: keeps jobs that mention every selected skill.
  * Postings from sources without descriptions (no `skills`) can only match a
- * skill named in their title.
+ * skill named in their title, and so can a typed skill we don't track.
  */
 export function filterBySkills(jobs: readonly MatchedJob[], skills: readonly string[]): MatchedJob[] {
   if (skills.length === 0) return [...jobs];
+  const titlePatterns = new Map(skills.map((s) => [s, phraseRegExp(s)]));
   return jobs.filter((job) => {
     const have = jobSkills(job);
-    return skills.every((s) => have.has(s));
+    return skills.every((s) => have.has(s) || titlePatterns.get(s)?.test(job.title));
   });
 }
 

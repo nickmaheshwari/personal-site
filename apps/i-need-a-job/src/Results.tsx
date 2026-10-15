@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
+import { trackedSkill } from "../shared/keywords.ts";
 import { type FilterStats, filterBySkills, jobSkills, type MatchedJob, searchJobs } from "../shared/match.ts";
 import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
@@ -137,6 +138,24 @@ export function Results({
     setSelectedSkills((s) => (s.includes(skill) ? s.filter((x) => x !== skill) : [...s, skill]));
     setShown(PAGE);
   };
+
+  // Skills the visitor typed. A tracked keyword ("Tableau") matches like the
+  // resume's skills; anything else can only be found in job titles.
+  const [customSkills, setCustomSkills] = useState<{ skill: string; tracked: boolean }[]>([]);
+  const [newSkill, setNewSkill] = useState("");
+  const skillOptions = [...resumeSkills, ...customSkills.map((c) => c.skill).filter((s) => !resumeSkills.includes(s))];
+  const untrackedSelected = customSkills.filter((c) => !c.tracked && selectedSkills.includes(c.skill));
+  const addSkill = (e: FormEvent) => {
+    e.preventDefault();
+    const typed = newSkill.trim();
+    if (!typed) return;
+    const tracked = trackedSkill(typed);
+    const skill = tracked ?? typed;
+    if (!skillOptions.includes(skill)) setCustomSkills((c) => [...c, { skill, tracked: tracked !== null }]);
+    setSelectedSkills((s) => (s.includes(skill) ? s : [...s, skill]));
+    setNewSkill("");
+    setShown(PAGE);
+  };
   const clearFilters = () => {
     setQuery("");
     setSelectedSkills([]);
@@ -201,26 +220,48 @@ export function Results({
               setShown(PAGE);
             }}
           />
-          {resumeSkills.length > 0 && (
-            <div className="skill-filter">
-              <span className="hint">Mentions skills from your resume:</span>
-              <div className="chips">
-                {resumeSkills.map((skill) => {
-                  const on = selectedSkills.includes(skill);
-                  return (
-                    <button
-                      key={skill}
-                      type="button"
-                      className={`chip${on ? " selected" : ""}`}
-                      aria-pressed={on}
-                      onClick={() => toggleSkill(skill)}
-                    >
-                      {skill}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="skill-filter">
+            <span className="hint">
+              {resumeSkills.length > 0
+                ? "Filter jobs to show those with skills from your resume:"
+                : "Filter jobs to show those with a skill:"}
+            </span>
+            <div className="chips">
+              {skillOptions.map((skill) => {
+                const on = selectedSkills.includes(skill);
+                return (
+                  <button
+                    key={skill}
+                    type="button"
+                    className={`chip${on ? " selected" : ""}`}
+                    aria-pressed={on}
+                    onClick={() => toggleSkill(skill)}
+                  >
+                    {skill}
+                  </button>
+                );
+              })}
+              <form className="add-skill" onSubmit={addSkill}>
+                <input
+                  type="text"
+                  aria-label="Add a skill to filter by"
+                  placeholder="Add a skill…"
+                  value={newSkill}
+                  maxLength={60}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                />
+                <button type="submit" className="small" disabled={!newSkill.trim()}>
+                  Add
+                </button>
+              </form>
             </div>
+          </div>
+          {untrackedSelected.length > 0 && (
+            <p className="hint">
+              {untrackedSelected.map((c) => `"${c.skill}"`).join(", ")}{" "}
+              {untrackedSelected.length === 1 ? "isn't a skill" : "aren't skills"} we can find in job descriptions, so{" "}
+              {untrackedSelected.length === 1 ? "it only matches" : "they only match"} job titles.
+            </p>
           )}
           {narrowed && (
             <p className="hint" aria-live="polite">
@@ -235,6 +276,16 @@ export function Results({
             </p>
           )}
         </div>
+      )}
+
+      {visible.length > 0 && (
+        <p className="hint tracker-hint">
+          <strong>Tracking jobs:</strong> use the "Not tracked" menu on a job to mark it Saved, Applied, Interviewing,
+          Offer or Rejected. Tracked jobs are listed under "Your applications" at the bottom of the page, where you can
+          add notes and export a CSV. They keep a copy of the posting, so they stay listed after it's taken down. Your
+          list is saved in this browser only, so it won't show up on other devices and is lost if you clear your browser
+          data. Export a copy to keep it safe.
+        </p>
       )}
 
       <ul className="jobs">
@@ -267,10 +318,10 @@ export function Results({
               {job.minYears !== null && <span>{job.minYears}+ yrs</span>}
               {age(job.postedAt) && <span>{age(job.postedAt)}</span>}
               <span className="badge subtle">{job.matchedTitle}</span>
-              {resumeSkills.length > 0 &&
+              {skillOptions.length > 0 &&
                 (() => {
                   const have = jobSkills(job);
-                  return resumeSkills
+                  return skillOptions
                     .filter((s) => have.has(s))
                     .map((s) => (
                       <span key={s} className="badge skill">
