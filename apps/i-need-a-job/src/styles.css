@@ -130,6 +130,7 @@ select:focus-visible,
 }
 
 input[type="text"],
+input[type="search"],
 input[type="number"],
 input[type="password"],
 select {
@@ -269,6 +270,14 @@ select {
 
 .empty {
   color: var(--muted);
+}
+
+.results-search {
+  margin-top: 16px;
+}
+
+.results-search .hint {
+  margin: 6px 0 0;
 }
 
 .jobs {

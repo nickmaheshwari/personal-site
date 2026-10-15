@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { locationMatches } from "./locations.ts";
-import { type Filters, filterJobs, filterJobsWithStats, tokenize } from "./match.ts";
+import { type Filters, filterJobs, filterJobsWithStats, type MatchedJob, searchJobs, tokenize } from "./match.ts";
 import type { Job } from "./types.ts";
 
 const job = (overrides: Partial<Job>): Job => ({
@@ -148,5 +148,44 @@ describe("broad matching ignores generic words", () => {
     ];
     const titles = ["Public Health Program Manager"];
     expect(filterJobs(jobs, filters({ titles, broadTitleMatch: true })).map((j) => j.id)).toEqual(["ohp"]);
+  });
+});
+
+describe("searchJobs", () => {
+  const matched = (overrides: Partial<MatchedJob>): MatchedJob => ({
+    ...job({}),
+    matchedTitle: "Software Engineer",
+    ...overrides,
+  });
+  const jobs = [
+    matched({ id: "stripe", company: "Stripe", title: "Backend Engineer", location: "Seattle, WA" }),
+    matched({ id: "bombas", company: "Bombas", title: "Data Analyst", location: "New York, NY" }),
+    matched({ id: "nestle", company: "Nestlé Purina", title: "Software Engineer II", location: "Remote" }),
+  ];
+  const ids = (query: string) => searchJobs(jobs, query).map((j) => j.id);
+
+  it("keeps everything for an empty or blank query", () => {
+    expect(ids("")).toEqual(["stripe", "bombas", "nestle"]);
+    expect(ids("   ")).toEqual(["stripe", "bombas", "nestle"]);
+  });
+
+  it("matches employer, title and location, ignoring case", () => {
+    expect(ids("STRIPE")).toEqual(["stripe"]);
+    expect(ids("analyst")).toEqual(["bombas"]);
+    expect(ids("seattle")).toEqual(["stripe"]);
+  });
+
+  it("matches partial words and ignores accents", () => {
+    expect(ids("strip")).toEqual(["stripe"]);
+    expect(ids("nestle")).toEqual(["nestle"]);
+  });
+
+  it("requires every word, across fields and in any order", () => {
+    expect(ids("engineer seattle")).toEqual(["stripe"]);
+    expect(ids("seattle analyst")).toEqual([]);
+  });
+
+  it("matches the employer's industry", () => {
+    expect(ids("retail")).toEqual(["bombas"]);
   });
 });
