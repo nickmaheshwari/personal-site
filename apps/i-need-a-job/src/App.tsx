@@ -153,13 +153,25 @@ export function App() {
     search !== null &&
     (search.titles.length !== selectedTitles.length || search.titles.some((t) => !selectedTitles.includes(t)));
 
+  // The feedback form sits at the bottom, closed. Report buttons and the
+  // masthead link open it and scroll to it (scrollRequest bumps each time).
   const feedbackRef = useRef<HTMLDivElement>(null);
-  const report = useCallback((problem: string) => {
-    setFeedbackPrefill((p) => ({ kind: "bug", details: technicalDetails(problem), id: (p?.id ?? 0) + 1 }));
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [scrollRequest, setScrollRequest] = useState(0);
+  const openFeedback = useCallback(() => {
+    setFeedbackOpen(true);
+    setScrollRequest((n) => n + 1);
   }, []);
+  const report = useCallback(
+    (problem: string) => {
+      setFeedbackPrefill((p) => ({ kind: "bug", details: technicalDetails(problem), id: (p?.id ?? 0) + 1 }));
+      openFeedback();
+    },
+    [openFeedback],
+  );
   useEffect(() => {
-    if (feedbackPrefill) feedbackRef.current?.scrollIntoView();
-  }, [feedbackPrefill]);
+    if (scrollRequest > 0) feedbackRef.current?.scrollIntoView();
+  }, [scrollRequest]);
 
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
@@ -188,7 +200,10 @@ export function App() {
           <p>
             Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} employers
             across {INDUSTRIES.length} industries, plus federal and remote job sites. Your resume is read in your
-            browser and never uploaded. <a href="#feedback">Send feedback</a>
+            browser and never uploaded.{" "}
+            <button type="button" className="link" onClick={openFeedback}>
+              Send feedback
+            </button>
           </p>
         </header>
 
@@ -235,7 +250,7 @@ export function App() {
         />
 
         <div ref={feedbackRef}>
-          <Feedback prefill={feedbackPrefill} />
+          <Feedback prefill={feedbackPrefill} open={feedbackOpen} onOpenChange={setFeedbackOpen} />
         </div>
       </main>
     </ReportContext.Provider>

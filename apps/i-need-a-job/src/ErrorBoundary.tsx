@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
             </button>
           </div>
         </section>
-        <Feedback prefill={{ kind: "bug", details: this.state.details, id: 1 }} />
+        <Feedback prefill={{ kind: "bug", details: this.state.details, id: 1 }} open />
       </main>
     );
   }

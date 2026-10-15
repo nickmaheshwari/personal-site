@@ -11,13 +11,17 @@ export interface FeedbackPrefill {
 
 interface Props {
   prefill: FeedbackPrefill | null;
+  /** Closed, it's just a button that opens it. The draft is kept while closed. */
+  open: boolean;
+  /** Omit to show the form with no way to close it (the crash page). */
+  onOpenChange?: (open: boolean) => void;
 }
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string };
 
 const MAX_MESSAGE = 5000;
 
-export function Feedback({ prefill }: Props) {
+export function Feedback({ prefill, open, onOpenChange }: Props) {
   const [kind, setKind] = useState<FeedbackKind>("idea");
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
@@ -57,9 +61,26 @@ export function Feedback({ prefill }: Props) {
     }
   }
 
+  if (!open) {
+    return (
+      <div className="feedback-toggle">
+        <button type="button" onClick={() => onOpenChange?.(true)}>
+          Send feedback or report a bug
+        </button>
+      </div>
+    );
+  }
+
   return (
     <section className="card" id="feedback">
-      <h2>Feedback and bug reports</h2>
+      <div className="card-header">
+        <h2>Feedback and bug reports</h2>
+        {onOpenChange && (
+          <button type="button" className="link" onClick={() => onOpenChange(false)}>
+            Close
+          </button>
+        )}
+      </div>
       <p className="hint">
         Suggest a feature or tell me about a problem. Your message is emailed to the site's owner. Your resume is never
         included.

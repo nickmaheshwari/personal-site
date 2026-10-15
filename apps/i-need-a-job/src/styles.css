@@ -456,3 +456,16 @@ pre.details {
 .error.banner {
   margin: 0 0 16px;
 }
+
+.feedback-toggle {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
