@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AGGREGATORS } from "../shared/aggregators.ts";
 import { COMPANIES, INDUSTRIES } from "../shared/companies.ts";
 import { dedupeJobs, type Filters, filterJobsWithStats } from "../shared/match.ts";
@@ -7,7 +7,9 @@ import type { Job, TitleFit } from "../shared/types.ts";
 import { Applications } from "./Applications.tsx";
 import { aggregatorTask, batchTasks, runSearchTasks, type SearchTask, type TaskResult, usaJobsTask } from "./api.ts";
 import { extractText, MAX_BYTES, UnsupportedFileError } from "./extract.ts";
+import { Feedback, type FeedbackPrefill, ReportButton } from "./Feedback.tsx";
 import { FiltersPanel } from "./FiltersPanel.tsx";
+import { describeError, ReportContext, technicalDetails } from "./feedback.ts";
 import { Results } from "./Results.tsx";
 import { useTracker } from "./tracker.ts";
 import { Upload } from "./Upload.tsx";
@@ -43,9 +45,16 @@ const initialFilters: Filters = {
   includeUnlistedSalary: true,
 };
 
+/** A resume file's type and size (never its contents), for bug reports. */
+const describeFile = (file: File) =>
+  `File: .${file.name.split(".").pop()?.toLowerCase() ?? "?"}, ${file.type || "unknown type"}, ${Math.round(file.size / 1024)} KB`;
+
 export function App() {
   const [analyzing, setAnalyzing] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<{ message: string; problem: string } | null>(null);
+  const [feedbackPrefill, setFeedbackPrefill] = useState<FeedbackPrefill | null>(null);
+  // Errors outside rendering (e.g. in event handlers), which the ErrorBoundary can't catch.
+  const [pageError, setPageError] = useState<string | null>(null);
   const [titles, setTitles] = useState<TitleOption[] | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [search, setSearch] = useState<SearchState | null>(null);
@@ -63,15 +72,25 @@ export function App() {
       if (!text.trim()) throw new Error("No text found in that file. Is it a scanned image?");
       const result = analyzeResume(text);
       if (result.titles.length === 0) {
-        setUploadError("Couldn't recognize any roles in this resume. Add titles yourself below.");
+        setUploadError({
+          message: "Couldn't recognize any roles in this resume. Add titles yourself below.",
+          problem: `No job titles were suggested for this resume.\n${describeFile(file)}`,
+        });
       }
       setResumeText(text);
       setTitles(result.titles.map((t) => ({ ...t, selected: t.fit !== "stretch" })));
       setFilters((f) => ({ ...f, yearsOfExperience: result.yearsOfExperience ?? f.yearsOfExperience }));
       setSearch(null);
     } catch (err) {
-      if (err instanceof UnsupportedFileError) setUploadError("Upload a PDF, DOCX, TXT, or MD file.");
-      else setUploadError(err instanceof Error ? err.message : "Couldn't read that file.");
+      setUploadError({
+        message:
+          err instanceof UnsupportedFileError
+            ? "Upload a PDF, DOCX, TXT, or MD file."
+            : err instanceof Error
+              ? err.message
+              : "Couldn't read that file.",
+        problem: `Reading the resume failed:\n${describeError(err)}\n${describeFile(file)}`,
+      });
     } finally {
       setAnalyzing(false);
     }
@@ -134,52 +153,91 @@ export function App() {
     search !== null &&
     (search.titles.length !== selectedTitles.length || search.titles.some((t) => !selectedTitles.includes(t)));
 
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const report = useCallback((problem: string) => {
+    setFeedbackPrefill((p) => ({ kind: "bug", details: technicalDetails(problem), id: (p?.id ?? 0) + 1 }));
+  }, []);
+  useEffect(() => {
+    if (feedbackPrefill) feedbackRef.current?.scrollIntoView();
+  }, [feedbackPrefill]);
+
+  useEffect(() => {
+    const onError = (e: ErrorEvent) => {
+      // Ignore errors from browser extensions and other scripts that aren't ours.
+      if (e.filename && !e.filename.startsWith(location.origin)) return;
+      setPageError(describeError(e.error ?? e.message));
+    };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      // A cancelled request (e.g. starting a new search) isn't a problem.
+      if (e.reason instanceof Error && e.reason.name === "AbortError") return;
+      setPageError(describeError(e.reason));
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return (
-    <main className="page">
-      <header className="masthead">
-        <h1>I Need a Job</h1>
-        <p>
-          Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} employers across{" "}
-          {INDUSTRIES.length} industries, plus federal and remote job sites. Your resume is read in your browser and
-          never uploaded.
-        </p>
-      </header>
+    <ReportContext.Provider value={report}>
+      <main className="page">
+        <header className="masthead">
+          <h1>I Need a Job</h1>
+          <p>
+            Add your resume, pick the roles you'd take, and search current openings at {COMPANIES.length} employers
+            across {INDUSTRIES.length} industries, plus federal and remote job sites. Your resume is read in your
+            browser and never uploaded. <a href="#feedback">Send feedback</a>
+          </p>
+        </header>
 
-      <Upload analyzing={analyzing} error={uploadError} onAnalyze={analyze} />
+        {pageError && (
+          <p className="error banner" role="alert">
+            Something went wrong on this page. <ReportButton problem={`Unexpected error:\n${pageError}`} />
+          </p>
+        )}
 
-      {titles && (
-        <FiltersPanel
-          titles={titles}
-          onTitlesChange={setTitles}
-          filters={filters}
-          onFiltersChange={setFilters}
-          searching={search?.running ?? false}
-          onSearch={runSearch}
-          canSearch={selectedTitles.length > 0}
-        />
-      )}
+        <Upload analyzing={analyzing} error={uploadError} onAnalyze={analyze} />
 
-      {search && stats && (
-        <Results
-          search={search}
-          matches={matches}
-          stats={stats}
+        {titles && (
+          <FiltersPanel
+            titles={titles}
+            onTitlesChange={setTitles}
+            filters={filters}
+            onFiltersChange={setFilters}
+            searching={search?.running ?? false}
+            onSearch={runSearch}
+            canSearch={selectedTitles.length > 0}
+          />
+        )}
+
+        {search && stats && (
+          <Results
+            search={search}
+            matches={matches}
+            stats={stats}
+            tracker={tracker}
+            onStatusChange={setStatus}
+            resumeText={resumeText}
+            titlesChanged={titlesChanged && !search.running}
+            onSearchAgain={runSearch}
+          />
+        )}
+
+        <Applications
           tracker={tracker}
-          onStatusChange={setStatus}
-          resumeText={resumeText}
-          titlesChanged={titlesChanged && !search.running}
-          onSearchAgain={runSearch}
+          onStatusChange={(id, status) => {
+            const entry = tracker[id];
+            if (entry) setStatus(entry.job, status);
+          }}
+          onNotesChange={setNotes}
         />
-      )}
 
-      <Applications
-        tracker={tracker}
-        onStatusChange={(id, status) => {
-          const entry = tracker[id];
-          if (entry) setStatus(entry.job, status);
-        }}
-        onNotesChange={setNotes}
-      />
-    </main>
+        <div ref={feedbackRef}>
+          <Feedback prefill={feedbackPrefill} />
+        </div>
+      </main>
+    </ReportContext.Provider>
   );
 }

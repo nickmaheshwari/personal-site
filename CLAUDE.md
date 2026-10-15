@@ -61,6 +61,8 @@ apps/i-need-a-job/    # Hidden webapp at /i-need-a-job (React + Vite + TS)
     extract.ts        #   PDF (pdf.js) / DOCX (fflate) / TXT → plain text, in the browser
     tracker.ts        #   Application tracker (status, notes, CSV export) in localStorage
     FitCheck.tsx      #   Per-job resume keyword check
+    Feedback.tsx      #   Feedback / bug report form (Netlify Forms) and "Report this problem" buttons
+    ErrorBoundary.tsx #   Shows a prefilled bug report instead of a blank page if rendering crashes
   shared/             # Code used by both the UI and the functions (+ tests)
     taxonomy.ts       #   Job families: titles, aliases, skill keywords, adjacent families
     resume.ts         #   Resume text → suggested titles + years of experience
@@ -102,6 +104,7 @@ netlify.toml                # Build, headers (noindex + CSP for hidden apps)
 - **No AI or LLM calls, by design.** Title suggestions are plain text processing in `shared/resume.ts`, and the resume never leaves the browser. Each family is scored as 4 × (its titles mentioned in the resume) + (distinct keyword hits). Mentioned titles are "close". Families scoring at least 35% of the best family are "related". Up to 10 titles from their adjacent families are "stretch". To improve suggestions, edit `shared/taxonomy.ts` and add a case to `shared/resume.test.ts`.
 - **Writing taxonomy entries:** some titles are too generic to detect in a resume (Server, Editor, Scientist), so they're marked `aliasesOnly` and only their aliases count as mentions. Avoid aliases and keywords with common other meanings, such as "Driver", "Producer" (Kafka), "Picker" (date picker) and "production".
 - **Years of experience** is the total of date ranges in work sections, with overlaps merged and education/projects/skills sections skipped.
+- **Feedback and bug reports** use Netlify Forms (form `i-need-a-job-feedback`). Netlify only accepts forms it finds in the deployed HTML, so `apps/i-need-a-job/index.html` has a hidden copy of the form, and `src/feedback.ts` POSTs the same fields to `/`. Keep the two in sync. Error messages (resume upload, resume fit, sources that couldn't load, uncaught errors and render crashes) have a "Report this problem" button. It fills in the form with the error, page, browser and screen size, and the visitor can see and untick these before sending. Resume text is never included. The form has a `bot-field` honeypot. Two settings live in the Netlify UI, not the repo: form detection must be enabled (Forms), and the email alert is under Site configuration → Notifications → Emails and webhooks → Form submission notifications. Submissions only work on Netlify (deploy previews included), not under `npm run dev`. The free plan allows 100 form submissions a month.
 - **Known limits:** salary and years-of-experience values are parsed from posting text with regexes, so some postings have neither. Workday locations often say "3 Locations", which the location filter can't match. Coverage of local government is thin, because most of it uses NEOGOV or its own sites, which have no public APIs.
 
 The resume site is based on the **Ceevee** template by Styleshout and uses jQuery 1.10 with plugins. It has no build step of its own: its files are copied into `dist/` unchanged.

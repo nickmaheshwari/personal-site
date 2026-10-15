@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { compareKeywords, type KeywordComparison } from "../shared/keywords.ts";
 import { fetchPostingText } from "./api.ts";
+import { ReportButton } from "./Feedback.tsx";
 
 interface Props {
   url: string;
@@ -27,7 +28,13 @@ export function FitCheck({ url, resumeText }: Props) {
   }, [url, resumeText]);
 
   if (state.kind === "loading") return <p className="fit hint">Reading the job description…</p>;
-  if (state.kind === "error") return <p className="fit error">{state.message}</p>;
+  if (state.kind === "error") {
+    return (
+      <p className="fit error">
+        {state.message} <ReportButton problem={`The resume fit check failed: ${state.message}\nPosting: ${url}`} />
+      </p>
+    );
+  }
 
   const { matched, missing } = state.result;
   if (matched.length === 0 && missing.length === 0) {

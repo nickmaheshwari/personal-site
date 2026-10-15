@@ -3,6 +3,7 @@ import { type FilterStats, type MatchedJob, searchJobs } from "../shared/match.t
 import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
 import { postingUrl } from "./api.ts";
+import { ReportButton } from "./Feedback.tsx";
 import { FitCheck } from "./FitCheck.tsx";
 import { STATUS_LABELS, STATUSES, type Status, type Tracker } from "./tracker.ts";
 
@@ -154,7 +155,10 @@ export function Results({
       {search.failed.length > 0 && (
         <details className="hint">
           <summary>Couldn't load {search.failed.length} sources</summary>
-          {search.failed.join(", ")}
+          {search.failed.join(", ")}.{" "}
+          <ReportButton
+            problem={`Couldn't load ${search.failed.length} sources: ${search.failed.join(", ")}\nTitles: ${search.titles.join(", ")}`}
+          />
         </details>
       )}
       {search.partial.length > 0 && (

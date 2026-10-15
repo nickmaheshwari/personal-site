@@ -10,6 +10,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      Netlify Forms only accepts forms it finds in the deployed HTML. This hidden
+      copy registers the fields that src/Feedback.tsx submits (see src/feedback.ts);
+      keep the name and fields in sync. bot-field is a honeypot.
+    -->
+    <form name="i-need-a-job-feedback" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input type="text" name="kind" />
+      <textarea name="message"></textarea>
+      <input type="email" name="email" />
+      <textarea name="details"></textarea>
+      <input type="text" name="bot-field" />
+    </form>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

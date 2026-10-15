@@ -133,6 +133,8 @@ input[type="text"],
 input[type="search"],
 input[type="number"],
 input[type="password"],
+input[type="email"],
+.field textarea,
 select {
   width: 100%;
   border: 1px solid var(--border);
@@ -427,4 +429,30 @@ textarea:focus-visible {
 
 .keyword.missing {
   border-style: dashed;
+}
+
+.field textarea {
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+
+/* Hidden from people (not display:none, which some bots skip). */
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+pre.details {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.error.banner {
+  margin: 0 0 16px;
 }
