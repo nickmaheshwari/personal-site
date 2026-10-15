@@ -131,3 +131,55 @@ B.S. Public Health, State University   2015 - 2019`;
     expect(estimateYearsOfExperience(RESUME, new Date(2026, 9, 1))).toBe(7);
   });
 });
+
+describe("suggestTitles for finance", () => {
+  const fitIn = (resume: string) => {
+    const titles = suggestTitles(resume);
+    return (title: string) => titles.find((t) => t.title === title)?.fit;
+  };
+
+  it("recognizes an investment banking analyst", () => {
+    const fit = fitIn(`
+Experience
+Investment Banking Analyst, Regional Securities LLC        Jul 2023 – Present
+- Built DCF and LBO models and pitch books for M&A and capital markets mandates
+- Prepared valuation analyses and financial statements reviews for clients
+Summer Analyst, Corporate Finance                          Jun 2022 - Aug 2022
+Skills: Excel, Capital IQ, FactSet, Bloomberg Terminal, financial modeling
+`);
+    expect(fit("Investment Banking Analyst")).toBe("close");
+    expect(fit("Corporate Banking Analyst")).toBe("related");
+    expect(["related", "stretch"]).toContain(fit("Private Equity Associate"));
+  });
+
+  it("recognizes a credit analyst and lender", () => {
+    const fit = fitIn(`
+Commercial Credit Analyst, First Community Bank          2021 - Present
+- Credit analysis and underwriting for commercial lending and mortgage loans
+- Reviewed financial statements; supported relationship bankers with deposits and treasury management
+`);
+    expect(fit("Credit Analyst")).toBe("close");
+    expect(fit("Relationship Manager")).toBe("related");
+    expect(fit("Underwriter")).toBe("related");
+  });
+
+  it("recognizes risk and compliance work", () => {
+    const fit = fitIn(`
+AML Analyst, Big Bank N.A.                               2020 - Present
+- Transaction monitoring, KYC reviews and OFAC sanctions screening; drafted SAR narratives
+- Supported BSA program testing and internal controls; CAMS certified
+`);
+    expect(fit("AML Analyst")).toBe("close");
+    expect(fit("Compliance Analyst")).toBe("related");
+    expect(fit("Fraud Analyst")).toBe("related");
+  });
+
+  it("recognizes an insurance claims adjuster", () => {
+    const fit = fitIn(`
+Claims Adjuster, Midwest Mutual                          2019 - Present
+- Investigated property and casualty claims, set reserves, and worked with underwriting on policyholders' coverage
+`);
+    expect(fit("Claims Adjuster")).toBe("close");
+    expect(fit("Claims Representative")).toBe("related");
+  });
+});
