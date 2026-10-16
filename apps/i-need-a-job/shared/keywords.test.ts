@@ -13,6 +13,18 @@ describe("compareKeywords", () => {
     expect(matched).not.toContain("nutrition");
   });
 
+  it("only counts keywords from the job's field and its neighbors", () => {
+    const job =
+      "Solutions Engineer: run pre-sales demos with Kubernetes. We offer compensation, benefits, wellbeing stipends and fraud training.";
+    const { missing } = compareKeywords("", job, "Solutions Engineer");
+    expect(missing).toEqual(expect.arrayContaining(["pre-sales", "kubernetes"]));
+    for (const noise of ["compensation", "benefits", "wellbeing", "fraud"]) expect(missing).not.toContain(noise);
+  });
+
+  it("uses every keyword when the title isn't in the taxonomy", () => {
+    expect(compareKeywords("", "Fraud investigations", "Chief Vibes Officer").missing).toContain("fraud");
+  });
+
   it("leaves soft skills out", () => {
     expect(compareKeywords("Python", "Python and strong communication skills")).toEqual({
       matched: ["python"],

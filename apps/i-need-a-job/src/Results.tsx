@@ -24,7 +24,7 @@ interface Props {
 }
 
 interface JobActionsProps {
-  job: Job;
+  job: MatchedJob;
   status: Status | null;
   onStatusChange: (job: Job, status: Status | null) => void;
   resumeText: string | null;
@@ -64,7 +64,9 @@ function JobActions({ job, status, onStatusChange, resumeText }: JobActionsProps
           </button>
         )}
       </div>
-      {checking && fitUrl && resumeText && <FitCheck url={fitUrl} resumeText={resumeText} />}
+      {checking && fitUrl && resumeText && (
+        <FitCheck url={fitUrl} resumeText={resumeText} jobTitle={job.matchedTitle} />
+      )}
     </>
   );
 }

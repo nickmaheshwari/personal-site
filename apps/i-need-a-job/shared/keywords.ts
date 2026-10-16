@@ -5,8 +5,10 @@
 import { phraseRegExp } from "./resume.ts";
 import { FAMILIES } from "./taxonomy.ts";
 
-// Very common words that would show up as "missing" on almost every posting
-// without telling the candidate anything.
+// Words that help place a resume in a family (resume.ts) but aren't skills, or
+// are so common they'd show up as "missing" on almost every posting without
+// telling the candidate anything. Many appear in boilerplate ("our customers",
+// "compensation and benefits", "we're hiring").
 const TOO_COMMON = new Set([
   "api",
   "apis",
@@ -17,6 +19,13 @@ const TOO_COMMON = new Set([
   "operations",
   "strategy",
   "planning",
+  "customers",
+  "hiring",
+  "compensation",
+  "benefits",
+  "wellbeing",
+  "legal",
+  "articulate",
 ]);
 
 // Soft skills: people and work-style skills, as opposed to technical ("hard")
@@ -135,12 +144,29 @@ export interface KeywordComparison {
   missing: string[];
 }
 
-export function compareKeywords(resumeText: string, jobText: string): KeywordComparison {
+/**
+ * The keywords that are relevant to a job found under `title`: those of the
+ * title's family and its adjacent families, or null when the title isn't in the
+ * taxonomy (a typed title). Without this, a sales posting's "benefits" and
+ * "wellbeing" counted as skills from the HR and health families.
+ */
+function relevantKeywords(title: string): Set<string> | null {
+  const lower = title.toLowerCase();
+  const family = FAMILIES.find((f) => f.titles.some((t) => t.title.toLowerCase() === lower));
+  if (!family) return null;
+  const families = FAMILIES.filter((f) => f === family || family.adjacent.includes(f.id));
+  return new Set(families.flatMap((f) => f.keywords).map(variantKey));
+}
+
+/** `jobTitle` is the title the job was found under; it limits the comparison to that field's keywords. */
+export function compareKeywords(resumeText: string, jobText: string, jobTitle = ""): KeywordComparison {
   const inResume = new Set(findKeywords(resumeText));
+  const relevant = relevantKeywords(jobTitle);
   const matched: string[] = [];
   const missing: string[] = [];
   for (const keyword of findKeywords(jobText)) {
-    if (!isSoftSkill(keyword)) (inResume.has(keyword) ? matched : missing).push(keyword);
+    if (isSoftSkill(keyword) || (relevant && !relevant.has(variantKey(keyword)))) continue;
+    (inResume.has(keyword) ? matched : missing).push(keyword);
   }
   return { matched, missing };
 }

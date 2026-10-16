@@ -6,26 +6,28 @@ import { ReportButton } from "./Feedback.tsx";
 interface Props {
   url: string;
   resumeText: string;
+  /** The title the job was found under, so only that field's keywords count. */
+  jobTitle: string;
 }
 
 type State = { kind: "loading" } | { kind: "error"; message: string } | { kind: "done"; result: KeywordComparison };
 
 /** Shows which of a posting's skill keywords the resume covers and which it doesn't. */
-export function FitCheck({ url, resumeText }: Props) {
+export function FitCheck({ url, resumeText, jobTitle }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
 
   useEffect(() => {
     const controller = new AbortController();
     setState({ kind: "loading" });
     fetchPostingText(url, controller.signal)
-      .then((text) => setState({ kind: "done", result: compareKeywords(resumeText, text) }))
+      .then((text) => setState({ kind: "done", result: compareKeywords(resumeText, text, jobTitle) }))
       .catch((err: unknown) => {
         if (!controller.signal.aborted) {
           setState({ kind: "error", message: err instanceof Error ? err.message : "Couldn't load the posting." });
         }
       });
     return () => controller.abort();
-  }, [url, resumeText]);
+  }, [url, resumeText, jobTitle]);
 
   if (state.kind === "loading") return <p className="fit hint">Reading the job description…</p>;
   if (state.kind === "error") {
