@@ -71,7 +71,7 @@ apps/i-need-a-job/    # Hidden webapp at /i-need-a-job (React + Vite + TS)
     usajobs.ts        #   USAJOBS (federal) title search → Job
     aggregators.ts    #   Himalayas and Jobicy (remote job sites) title search → Job, credited with `via`
     posting.ts        #   One posting's full description (for the keyword check)
-    keywords.ts       #   Skill keywords: in a posting (`findKeywords`), a resume's top skills (`topSkills`), resume vs. posting
+    keywords.ts       #   Skill keywords: in a posting (`findKeywords`), a resume's top hard and soft skills (`topSkills`, soft ones listed in `SOFT_SKILLS`), resume vs. posting (hard skills only)
     match.ts          #   Title matching, filters, and per-filter stats (runs in the browser)
     locations.ts      #   Location dropdown options and aliases
 netlify/functions/    # Serverless API (TypeScript, modern Netlify Functions API)

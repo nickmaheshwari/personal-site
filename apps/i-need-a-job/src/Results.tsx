@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { trackedSkill } from "../shared/keywords.ts";
+import { isSoftSkill, type ResumeSkills, trackedSkill } from "../shared/keywords.ts";
 import { type FilterStats, filterBySkills, jobSkills, type MatchedJob, searchJobs } from "../shared/match.ts";
 import type { Job } from "../shared/types.ts";
 import type { SearchState } from "./App.tsx";
@@ -17,7 +17,7 @@ interface Props {
   /** The uploaded resume's text, for the keyword check; null if none is loaded. */
   resumeText: string | null;
   /** The resume's top skills (see topSkills), offered as toggles to narrow the results. */
-  resumeSkills: string[];
+  resumeSkills: ResumeSkills;
   /** The selected titles differ from the ones these results were searched for. */
   titlesChanged: boolean;
   onSearchAgain: () => void;
@@ -143,7 +143,21 @@ export function Results({
   // resume's skills; anything else can only be found in job titles.
   const [customSkills, setCustomSkills] = useState<{ skill: string; tracked: boolean }[]>([]);
   const [newSkill, setNewSkill] = useState("");
-  const skillOptions = [...resumeSkills, ...customSkills.map((c) => c.skill).filter((s) => !resumeSkills.includes(s))];
+  const fromResume = [...resumeSkills.hard, ...resumeSkills.soft];
+  const added = customSkills.filter((c) => !fromResume.includes(c.skill));
+  // Typed skills join the group they belong to; ones we don't track go under "Other".
+  const skillGroups: [string, string[]][] = [
+    [
+      "Hard skills",
+      [...resumeSkills.hard, ...added.filter((c) => c.tracked && !isSoftSkill(c.skill)).map((c) => c.skill)],
+    ],
+    [
+      "Soft skills",
+      [...resumeSkills.soft, ...added.filter((c) => c.tracked && isSoftSkill(c.skill)).map((c) => c.skill)],
+    ],
+    ["Other", added.filter((c) => !c.tracked).map((c) => c.skill)],
+  ];
+  const skillOptions = skillGroups.flatMap(([, skills]) => skills);
   const untrackedSelected = customSkills.filter((c) => !c.tracked && selectedSkills.includes(c.skill));
   const addSkill = (e: FormEvent) => {
     e.preventDefault();
@@ -222,25 +236,35 @@ export function Results({
           />
           <div className="skill-filter">
             <span className="hint">
-              {resumeSkills.length > 0
+              {fromResume.length > 0
                 ? "Filter jobs to show those with skills from your resume:"
                 : "Filter jobs to show those with a skill:"}
             </span>
+            {skillGroups.map(
+              ([label, skills]) =>
+                skills.length > 0 && (
+                  <div key={label} className="skill-group">
+                    <span className="skill-group-label">{label}</span>
+                    <div className="chips">
+                      {skills.map((skill) => {
+                        const on = selectedSkills.includes(skill);
+                        return (
+                          <button
+                            key={skill}
+                            type="button"
+                            className={`chip${on ? " selected" : ""}`}
+                            aria-pressed={on}
+                            onClick={() => toggleSkill(skill)}
+                          >
+                            {skill}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ),
+            )}
             <div className="chips">
-              {skillOptions.map((skill) => {
-                const on = selectedSkills.includes(skill);
-                return (
-                  <button
-                    key={skill}
-                    type="button"
-                    className={`chip${on ? " selected" : ""}`}
-                    aria-pressed={on}
-                    onClick={() => toggleSkill(skill)}
-                  >
-                    {skill}
-                  </button>
-                );
-              })}
               <form className="add-skill" onSubmit={addSkill}>
                 <input
                   type="text"
