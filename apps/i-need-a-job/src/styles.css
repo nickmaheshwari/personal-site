@@ -478,6 +478,20 @@ pre.details {
   margin-top: 10px;
 }
 
+.skill-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.skill-group-label {
+  font-size: 0.85em;
+  font-weight: 600;
+  min-width: 6.5em;
+}
+
 /* Resume skills the job mentions: outlined, so they read differently from the matched title. */
 .badge.skill {
   background: transparent;

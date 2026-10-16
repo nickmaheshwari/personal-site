@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareKeywords, findKeywords, topSkills, trackedSkill } from "./keywords.ts";
+import { compareKeywords, findKeywords, isSoftSkill, topSkills, trackedSkill } from "./keywords.ts";
 import { filterBySkills, type MatchedJob } from "./match.ts";
 
 describe("compareKeywords", () => {
@@ -11,6 +11,25 @@ describe("compareKeywords", () => {
     expect(matched).toEqual(expect.arrayContaining(["health fairs", "volunteers"]));
     expect(missing).toEqual(expect.arrayContaining(["nutrition", "physical activity", "motivational interviewing"]));
     expect(matched).not.toContain("nutrition");
+  });
+
+  it("only counts keywords from the job's field and its neighbors", () => {
+    const job =
+      "Solutions Engineer: run pre-sales demos with Kubernetes. We offer compensation, benefits, wellbeing stipends and fraud training.";
+    const { missing } = compareKeywords("", job, "Solutions Engineer");
+    expect(missing).toEqual(expect.arrayContaining(["pre-sales", "kubernetes"]));
+    for (const noise of ["compensation", "benefits", "wellbeing", "fraud"]) expect(missing).not.toContain(noise);
+  });
+
+  it("uses every keyword when the title isn't in the taxonomy", () => {
+    expect(compareKeywords("", "Fraud investigations", "Chief Vibes Officer").missing).toContain("fraud");
+  });
+
+  it("leaves soft skills out", () => {
+    expect(compareKeywords("Python", "Python and strong communication skills")).toEqual({
+      matched: ["python"],
+      missing: [],
+    });
   });
 
   it("returns nothing when the posting has no known keywords", () => {
@@ -40,17 +59,30 @@ describe("topSkills", () => {
 Data Analyst
 - Wrote SQL and Python to automate reports; Python notebooks for forecasting
 - Built Tableau dashboards from SQL queries
-- Python, SQL, Tableau, Excel, Docker`;
+- Python, SQL, Tableau, Excel, Docker
+- Leadership: led cross-functional collaboration; strong problem-solving and leadership`;
 
   it("ranks the resume's skills by how often they're mentioned", () => {
-    const skills = topSkills(resume);
-    expect(skills.slice(0, 2)).toEqual(["python", "sql"]);
-    expect(skills).toContain("tableau");
-    expect(skills.length).toBeLessThanOrEqual(7);
+    const { hard } = topSkills(resume);
+    expect(hard.slice(0, 2)).toEqual(["python", "sql"]);
+    expect(hard).toContain("tableau");
+    expect(hard.length).toBeLessThanOrEqual(7);
   });
 
-  it("caps the list", () => {
-    expect(topSkills(resume, 3)).toHaveLength(3);
+  it("sorts soft skills apart from hard ones", () => {
+    const { hard, soft } = topSkills(resume);
+    expect(soft[0]).toBe("leadership");
+    expect(soft).toEqual(expect.arrayContaining(["collaboration", "problem solving", "cross-functional"]));
+    expect(hard).not.toContain("leadership");
+    expect(soft).not.toContain("python");
+    expect(isSoftSkill("Problem-Solving")).toBe(true);
+    expect(isSoftSkill("python")).toBe(false);
+  });
+
+  it("caps each list", () => {
+    const { hard, soft } = topSkills(resume, 3);
+    expect(hard).toHaveLength(3);
+    expect(soft).toHaveLength(3);
   });
 });
 

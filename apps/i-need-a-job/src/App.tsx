@@ -98,7 +98,7 @@ export function App() {
   }
 
   const selectedTitles = useMemo(() => (titles ?? []).filter((t) => t.selected).map((t) => t.title), [titles]);
-  const resumeSkills = useMemo(() => (resumeText ? topSkills(resumeText) : []), [resumeText]);
+  const resumeSkills = useMemo(() => topSkills(resumeText ?? ""), [resumeText]);
 
   async function runSearch() {
     abortRef.current?.abort();

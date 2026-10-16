@@ -5,8 +5,10 @@
 import { phraseRegExp } from "./resume.ts";
 import { FAMILIES } from "./taxonomy.ts";
 
-// Very common words that would show up as "missing" on almost every posting
-// without telling the candidate anything.
+// Words that help place a resume in a family (resume.ts) but aren't skills, or
+// are so common they'd show up as "missing" on almost every posting without
+// telling the candidate anything. Many appear in boilerplate ("our customers",
+// "compensation and benefits", "we're hiring").
 const TOO_COMMON = new Set([
   "api",
   "apis",
@@ -17,18 +19,68 @@ const TOO_COMMON = new Set([
   "operations",
   "strategy",
   "planning",
+  "customers",
+  "hiring",
+  "compensation",
+  "benefits",
+  "wellbeing",
+  "legal",
+  "articulate",
 ]);
+
+// Soft skills: people and work-style skills, as opposed to technical ("hard")
+// ones. Matched like every other keyword, so they also filter jobs, but kept
+// out of the resume-fit comparison, where they'd be "missing" from almost every
+// posting. Some come from the taxonomy too (mentoring, stakeholders); listing
+// them here only marks them as soft. Spaces and hyphens match each other.
+const SOFT_SKILLS = [
+  "leadership",
+  "communication",
+  "collaboration",
+  "teamwork",
+  "problem solving",
+  "critical thinking",
+  "decision making",
+  "adaptability",
+  "time management",
+  "attention to detail",
+  "public speaking",
+  "presentation skills",
+  "interpersonal",
+  "emotional intelligence",
+  "empathy",
+  "active listening",
+  "conflict resolution",
+  "negotiation",
+  "relationship building",
+  "creativity",
+  "multitasking",
+  "work ethic",
+  "mentoring",
+  "mentored",
+  "coaching",
+  "people management",
+  "managed a team",
+  "led a team",
+  "cross-functional",
+  "stakeholders",
+  "stakeholder management",
+];
 
 // Spelling variants ("nonprofit"/"non-profit", "node.js"/"nodejs") are one keyword:
 // shown under the first spelling, matched by any of them.
 const variantKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9+#]/g, "");
 const groups = new Map<string, string[]>();
-for (const k of FAMILIES.flatMap((f) => f.keywords)) {
+for (const k of [...FAMILIES.flatMap((f) => f.keywords), ...SOFT_SKILLS]) {
   if (TOO_COMMON.has(k)) continue;
   const spellings = groups.get(variantKey(k)) ?? [];
   if (!spellings.includes(k)) spellings.push(k);
   groups.set(variantKey(k), spellings);
 }
+const SOFT = new Set(SOFT_SKILLS.map(variantKey));
+/** Is this keyword (as findKeywords returns it) a soft skill rather than a technical one? */
+export const isSoftSkill = (keyword: string) => SOFT.has(variantKey(keyword));
+
 const wordsOf = (text: string) => text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 
 const KEYWORDS = [...groups.values()].map((spellings) => ({
@@ -52,11 +104,19 @@ export function findKeywords(text: string): string[] {
   ).map((k) => k.keyword);
 }
 
+export interface ResumeSkills {
+  /** Technical skills and tools (Python, Tableau, budgeting). */
+  hard: string[];
+  /** People and work-style skills (leadership, collaboration). */
+  soft: string[];
+}
+
 /**
- * A resume's most-mentioned skill keywords, most mentions first (ties keep
- * taxonomy order), for the results' skill filter.
+ * A resume's most-mentioned skill keywords, split into hard and soft, each
+ * most mentions first (ties keep taxonomy order) and capped at `max`, for the
+ * results' skill filter.
  */
-export function topSkills(resumeText: string, max = 7): string[] {
+export function topSkills(resumeText: string, max = 7): ResumeSkills {
   const found = new Set(findKeywords(resumeText));
   const mentions = (keyword: string) => {
     const k = KEYWORDS.find((x) => x.keyword === keyword);
@@ -67,11 +127,14 @@ export function topSkills(resumeText: string, max = 7): string[] {
       ),
     );
   };
-  return [...found]
+  const ranked = [...found]
     .map((keyword, order) => ({ keyword, order, count: mentions(keyword) }))
     .sort((a, b) => b.count - a.count || a.order - b.order)
-    .slice(0, max)
     .map((s) => s.keyword);
+  return {
+    hard: ranked.filter((k) => !isSoftSkill(k)).slice(0, max),
+    soft: ranked.filter(isSoftSkill).slice(0, max),
+  };
 }
 
 export interface KeywordComparison {
@@ -81,11 +144,30 @@ export interface KeywordComparison {
   missing: string[];
 }
 
-export function compareKeywords(resumeText: string, jobText: string): KeywordComparison {
+/**
+ * The keywords that are relevant to a job found under `title`: those of the
+ * title's family and its adjacent families, or null when the title isn't in the
+ * taxonomy (a typed title). Without this, a sales posting's "benefits" and
+ * "wellbeing" counted as skills from the HR and health families.
+ */
+function relevantKeywords(title: string): Set<string> | null {
+  const lower = title.toLowerCase();
+  const family = FAMILIES.find((f) => f.titles.some((t) => t.title.toLowerCase() === lower));
+  if (!family) return null;
+  const families = FAMILIES.filter((f) => f === family || family.adjacent.includes(f.id));
+  return new Set(families.flatMap((f) => f.keywords).map(variantKey));
+}
+
+/** `jobTitle` is the title the job was found under; it limits the comparison to that field's keywords. */
+export function compareKeywords(resumeText: string, jobText: string, jobTitle = ""): KeywordComparison {
   const inResume = new Set(findKeywords(resumeText));
+  const relevant = relevantKeywords(jobTitle);
   const matched: string[] = [];
   const missing: string[] = [];
-  for (const keyword of findKeywords(jobText)) (inResume.has(keyword) ? matched : missing).push(keyword);
+  for (const keyword of findKeywords(jobText)) {
+    if (isSoftSkill(keyword) || (relevant && !relevant.has(variantKey(keyword)))) continue;
+    (inResume.has(keyword) ? matched : missing).push(keyword);
+  }
   return { matched, missing };
 }
 

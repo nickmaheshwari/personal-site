@@ -21,15 +21,25 @@ export interface FeedbackFields {
   email: string;
   /** Technical context for bug reports. Never includes the resume. */
   details: string;
+  /** Optional images, e.g. screenshots of the bug. At most MAX_SCREENSHOTS. */
+  screenshots: File[];
 }
 
-export async function submitFeedback(fields: FeedbackFields): Promise<void> {
-  const body = new URLSearchParams({ "form-name": FEEDBACK_FORM, ...fields });
-  const res = await fetch("/", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+/** Netlify Forms takes one file per field, so index.html has a field per screenshot. */
+export const MAX_SCREENSHOTS = 3;
+/** Netlify Forms rejects requests over 8 MB, so the images together leave room for the text fields. */
+export const MAX_SCREENSHOT_BYTES = 7 * 1024 * 1024;
+
+export async function submitFeedback({ screenshots, ...fields }: FeedbackFields): Promise<void> {
+  // Multipart, because Netlify Forms only accepts files that way. No Content-Type
+  // header: the browser sets it with the multipart boundary.
+  const body = new FormData();
+  body.append("form-name", FEEDBACK_FORM);
+  for (const [name, value] of Object.entries(fields)) body.append(name, value);
+  screenshots.forEach((file, i) => {
+    body.append(`screenshot${i + 1}`, file);
   });
+  const res = await fetch("/", { method: "POST", body });
   if (!res.ok) throw new Error(`The message couldn't be sent (error ${res.status}). Please try again later.`);
 }
 
