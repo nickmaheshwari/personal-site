@@ -1,5 +1,12 @@
 import { type FormEvent, useContext, useEffect, useState } from "react";
-import { FEEDBACK_KINDS, type FeedbackKind, ReportContext, submitFeedback } from "./feedback.ts";
+import {
+  FEEDBACK_KINDS,
+  type FeedbackKind,
+  MAX_SCREENSHOT_BYTES,
+  MAX_SCREENSHOTS,
+  ReportContext,
+  submitFeedback,
+} from "./feedback.ts";
 
 /** A bug report started from an error message: the form opens prefilled with its details. */
 export interface FeedbackPrefill {
@@ -27,6 +34,8 @@ export function Feedback({ prefill, open, onOpenChange }: Props) {
   const [email, setEmail] = useState("");
   const [details, setDetails] = useState("");
   const [includeDetails, setIncludeDetails] = useState(true);
+  const [screenshots, setScreenshots] = useState<File[]>([]);
+  const [screenshotError, setScreenshotError] = useState("");
   // Honeypot: hidden from people, so only bots fill it in.
   const [botField, setBotField] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -52,13 +61,26 @@ export function Feedback({ prefill, open, onOpenChange }: Props) {
         message: message.trim(),
         email: email.trim(),
         details: includeDetails ? details : "",
+        screenshots,
       });
       setStatus({ kind: "sent" });
       setMessage("");
       setDetails("");
+      setScreenshots([]);
     } catch (err) {
       setStatus({ kind: "error", message: err instanceof Error ? err.message : "The message couldn't be sent." });
     }
+  }
+
+  function addScreenshots(files: File[]) {
+    setScreenshotError("");
+    if (files.some((f) => !f.type.startsWith("image/"))) return setScreenshotError("Please choose image files only.");
+    const next = screenshots.concat(files);
+    if (next.length > MAX_SCREENSHOTS) return setScreenshotError(`You can attach up to ${MAX_SCREENSHOTS} images.`);
+    if (next.reduce((sum, f) => sum + f.size, 0) > MAX_SCREENSHOT_BYTES) {
+      return setScreenshotError("The images add up to more than 7 MB.");
+    }
+    setScreenshots(next);
   }
 
   if (!open) {
@@ -121,6 +143,40 @@ export function Feedback({ prefill, open, onOpenChange }: Props) {
             <span>Your email (optional, if you'd like a reply)</span>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </label>
+
+          <div className="field">
+            <span>Screenshots (optional, up to {MAX_SCREENSHOTS})</span>
+            {screenshots.map((file, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the rows hold no state, and the same file can be picked twice
+              <p key={i}>
+                {file.name}{" "}
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => setScreenshots(screenshots.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </p>
+            ))}
+            {screenshots.length < MAX_SCREENSHOTS && (
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                aria-label="Add screenshots (optional)"
+                onChange={(e) => {
+                  addScreenshots(Array.from(e.target.files ?? []));
+                  e.target.value = ""; // so picking the same file again still fires onChange
+                }}
+              />
+            )}
+            {screenshotError && (
+              <p className="error" role="alert">
+                {screenshotError}
+              </p>
+            )}
+          </div>
 
           {details && (
             <>
